@@ -1,6 +1,11 @@
 import abc
 import numpy as np
+import scipy.sparse as sp
 import torch
+
+from netgan import utils
+from net.utils import scores_matrix_from_transition_matrix
+
 
 dtype = torch.float32
 
@@ -24,6 +29,26 @@ class BasicPrintLogger(Logger):
     def log(self, step, loss, x, logits, labels, metrics, model):
         if step % self.print_every == self.print_every-1:
                 print(f'Step: {step}, Loss: {loss:.5f}')
+
+
+class OverlapLogger(Logger):
+    def __init__(self, train_graph, mixing_coeff=1.0, print_every=100):
+        self.train_graph = train_graph.toarray()
+        self._E = train_graph.sum()
+        self.mixing_coeff = mixing_coeff
+        self.print_every = print_every
+
+    def log(self, step, loss, x, logits, labels, metrics, model):
+        if step % self.print_every == self.print_every-1:
+            transition_matrix = model(torch.arange(start=0, end=self.train_graph.shape[0], dtype=int))
+            scores_matrix = scores_matrix_from_transition_matrix(transition_matrix=transition_matrix,
+                                                                 symmetric=True,
+                                                                 mixing_coeff=self.mixing_coeff)
+            scores_matrix = sp.csr_matrix(scores_matrix)
+            sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
+            overlap = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
+            print(f'Step: {step}, Loss: {loss:.5f}, Edge-Overlap: {overlap:.3f}')
+
 
 class Net(object):
     def __init__(self, N, H, loss_fn=torch.nn.functional.cross_entropy, loggers=[], metric_fns={}):
