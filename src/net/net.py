@@ -21,7 +21,8 @@ class Logger(abc.ABC):
     @abc.abstractmethod
     def log(self, step, loss, x, logits, labels, metrics, model):
         pass
-    
+
+
 class BasicPrintLogger(Logger):
     def __init__(self, print_every=100):
         self.print_every = print_every
@@ -52,6 +53,7 @@ class OverlapLogger(Logger):
 
 class Net(object):
     def __init__(self, N, H, loss_fn=torch.nn.functional.cross_entropy, loggers=[], metric_fns={}):
+        self.step = 0
         self.loss_fn = loss_fn
         self.loggers = loggers
         self.metric_fns = metric_fns
@@ -77,11 +79,11 @@ class Net(object):
     
     def train(self, generator, steps, optimizer_fn, optimizer_args):
         self._optimizer = optimizer_fn([self.w_down, self.w_up] ,**optimizer_args)
-        for step in range(steps):
+        for self.step in range(self.step, steps+self.step):
             x, labels = next(generator)
             logits, loss = self._train_step(x, labels)
             metrics = {}
             for metric_name, metric_fn in self.metric_fns.items():
                 metrics[metric_name] = metric_fn(x, logits, labels)
             for logger in self.loggers:
-                logger.log(step, loss, x, logits, labels, metrics, model=self)
+                logger.log(self.step, loss, x, logits, labels, metrics, model=self)
