@@ -54,3 +54,12 @@ def scores_matrix_from_transition_matrix(transition_matrix, mixing_coeff=1, samp
         scores_matrix *= samples
     
     return scores_matrix
+
+
+def update_dict_of_lists(dict_of_lists, new_dict):
+    for key, value in new_dict.items():
+        if key in dict_of_lists.keys():
+            dict_of_lists[key].append(value)
+        else:
+            dict_of_lists[key] = [value]
+    return dict_of_lists

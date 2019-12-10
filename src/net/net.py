@@ -4,7 +4,7 @@ import scipy.sparse as sp
 import torch
 
 from netgan import utils
-from net.utils import scores_matrix_from_transition_matrix
+from net.utils import scores_matrix_from_transition_matrix, update_dict_of_lists
 
 
 dtype = torch.float32
@@ -21,7 +21,8 @@ class Logger(abc.ABC):
     @abc.abstractmethod
     def log(self, step, loss, x, logits, labels, metrics, model):
         pass
-    
+
+
 class BasicPrintLogger(Logger):
     def __init__(self, print_every=100):
         self.print_every = print_every
@@ -50,8 +51,32 @@ class OverlapLogger(Logger):
             print(f'Step: {step}, Loss: {loss:.5f}, Edge-Overlap: {overlap:.3f}')
 
 
+class GraphStatisticsLogger(Logger):
+    def __init__(self, train_graph, mixing_coeff=1.0, log_every=100):
+        self.train_graph = train_graph.toarray()
+        self._E = train_graph.sum()
+        self.mixing_coeff = mixing_coeff
+        self.log_every = log_every
+        self.dict_of_lists_of_statistic = {}
+
+    def log(self, step, loss, x, logits, labels, metrics, model):
+        if step % self.log_every == self.log_every-1:
+            transition_matrix = model(torch.arange(start=0, end=self.train_graph.shape[0], dtype=int))
+            scores_matrix = scores_matrix_from_transition_matrix(transition_matrix=transition_matrix,
+                                                                 symmetric=True,
+                                                                 mixing_coeff=self.mixing_coeff)
+            scores_matrix = sp.csr_matrix(scores_matrix)
+            sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
+            statistics = utils.compute_graph_statistics(sampled_graph)
+            statistics['step'] = step
+            statistics['overlap'] = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
+            self.dict_of_lists_of_statistic = update_dict_of_lists(self.dict_of_lists_of_statistic, statistics)
+
+
+
 class Net(object):
     def __init__(self, N, H, loss_fn=torch.nn.functional.cross_entropy, loggers=[], metric_fns={}):
+        self.step = 0
         self.loss_fn = loss_fn
         self.loggers = loggers
         self.metric_fns = metric_fns
@@ -77,11 +102,11 @@ class Net(object):
     
     def train(self, generator, steps, optimizer_fn, optimizer_args):
         self._optimizer = optimizer_fn([self.w_down, self.w_up] ,**optimizer_args)
-        for step in range(steps):
+        for self.step in range(self.step, steps+self.step):
             x, labels = next(generator)
             logits, loss = self._train_step(x, labels)
             metrics = {}
             for metric_name, metric_fn in self.metric_fns.items():
                 metrics[metric_name] = metric_fn(x, logits, labels)
             for logger in self.loggers:
-                logger.log(step, loss, x, logits, labels, metrics, model=self)
+                logger.log(self.step, loss, x, logits, labels, metrics, model=self)
