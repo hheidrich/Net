@@ -4,7 +4,7 @@ import scipy.sparse as sp
 import torch
 
 from netgan import utils
-from net.utils import scores_matrix_from_transition_matrix, update_dict_of_lists
+from net.utils import scores_matrix_from_transition_matrix, update_dict_of_lists, get_plot_grid_size
 
 
 dtype = torch.float32
@@ -72,6 +72,30 @@ class GraphStatisticsLogger(Logger):
             statistics['overlap'] = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
             self.dict_of_lists_of_statistic = update_dict_of_lists(self.dict_of_lists_of_statistic, statistics)
 
+    def print_statistics(self, keys, reference_dict_of_statistics=None):
+        if reference_dict_of_statistics:
+            reference_dict_of_statistics['overlap'] = 1.
+        n_rows, n_cols = get_plot_grid_size(len(keys))
+        f, axs = plt.subplots(n_rows, n_cols, sharex=True, figsize=(12, 12))
+        plt.tight_layout(pad=2)
+        steps = self.dict_of_lists_of_statistic['step']
+        for row in range(n_rows):
+            for col in range(n_cols):
+                i = row * n_cols + col
+                if i < len(keys):
+                    key = keys[row * n_cols + col]
+                    axs[row, col].set_title(key)
+                    axs[row, col].plot(steps, self.dict_of_lists_of_statistic[key])
+                    if reference_dict_of_statistics:
+                        axs[row, col].hlines(y=reference_dict_of_statistics[key],
+                                             xmin=steps[0],
+                                             xmax=steps[-1],
+                                             colors='green',
+                                             linestyles='dashed')
+                else:
+                    axs[row, col].axis('off')
+        plt.show()
+
 
 
 class Net(object):
@@ -90,7 +114,7 @@ class Net(object):
                                            dim=-1).detach().numpy()
     
     def predict_logits(self, x):
-        return (self.w_down[x] @ self.w_up) + self.b_up
+        return (self.w_down[x] @ self.w_up) #+ self.b_up
     
     def _train_step(self, x, labels):
         logits = self.predict_logits(x)

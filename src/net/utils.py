@@ -63,3 +63,11 @@ def update_dict_of_lists(dict_of_lists, new_dict):
         else:
             dict_of_lists[key] = [value]
     return dict_of_lists
+
+def get_plot_grid_size(k):
+    rows = int(np.ceil(np.sqrt(k)))
+    if k <= rows * (rows - 1):
+        cols = rows - 1
+    else:
+        cols = rows
+    return rows, cols
