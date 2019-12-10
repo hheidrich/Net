@@ -71,3 +71,17 @@ def get_plot_grid_size(k):
     else:
         cols = rows
     return rows, cols
+
+def y_fmt(y, pos):    
+    if np.abs(y) <= 1e-2:
+        y_formatted = '{val}e-3'.format(val=int(1000 * y))
+    else:
+        y_formatted = round(y, 3)
+    
+    decades = [1e3, 1e6]
+    suffix  = ["K", "M"]
+    for i, d in enumerate(decades):
+        if np.abs(y) >= 10 * d:
+            val = y/float(d)
+            y_formatted = '{val}{suffix}'.format(val=int(val), suffix=suffix[i])
+    return y_formatted
