@@ -4,7 +4,7 @@ import scipy.sparse as sp
 import torch
 
 from netgan import utils
-from net.utils import scores_matrix_from_transition_matrix
+from net.utils import scores_matrix_from_transition_matrix, update_dict_of_lists
 
 
 dtype = torch.float32
@@ -49,6 +49,29 @@ class OverlapLogger(Logger):
             sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
             overlap = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
             print(f'Step: {step}, Loss: {loss:.5f}, Edge-Overlap: {overlap:.3f}')
+
+
+class GraphStatisticsLogger(Logger):
+    def __init__(self, train_graph, mixing_coeff=1.0, log_every=100):
+        self.train_graph = train_graph.toarray()
+        self._E = train_graph.sum()
+        self.mixing_coeff = mixing_coeff
+        self.log_every = log_every
+        self.dict_of_lists_of_statistic = {}
+
+    def log(self, step, loss, x, logits, labels, metrics, model):
+        if step % self.log_every == self.log_every-1:
+            transition_matrix = model(torch.arange(start=0, end=self.train_graph.shape[0], dtype=int))
+            scores_matrix = scores_matrix_from_transition_matrix(transition_matrix=transition_matrix,
+                                                                 symmetric=True,
+                                                                 mixing_coeff=self.mixing_coeff)
+            scores_matrix = sp.csr_matrix(scores_matrix)
+            sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
+            statistics = utils.compute_graph_statistics(sampled_graph)
+            statistics['step'] = step
+            statistics['overlap'] = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
+            self.dict_of_lists_of_statistic = update_dict_of_lists(self.dict_of_lists_of_statistic, statistics)
+
 
 
 class Net(object):
