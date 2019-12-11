@@ -16,7 +16,7 @@ def transform_to_transitions(random_walks):
     return x, y
 
 
-def scores_matrix_from_transition_matrix(transition_matrix, mixing_coeff=1, samples=[], symmetric=True):
+def scores_matrix_from_transition_matrix(transition_matrix, mixing_coeff=1, symmetric=True):
     """
     Compute the transition scores, i.e. the probability of a transition, for all node pairs from
     the transition matrix provided.
@@ -45,13 +45,10 @@ def scores_matrix_from_transition_matrix(transition_matrix, mixing_coeff=1, samp
     p_stationary = np.real(eigs(transition_matrix.T, k=1, sigma=1)[1])
     p_stationary /= p_stationary.sum()
     p_marginal = mixing_coeff * p_stationary + ((1 - mixing_coeff) / N) * np.ones_like(p_stationary)
-    scores_matrix = p_marginal * transition_matrix
+    scores_matrix = np.maximum(p_marginal * transition_matrix, 0)
     
     if symmetric:
         scores_matrix += scores_matrix.T
-    
-    if samples: 
-        scores_matrix *= samples
     
     return scores_matrix
 
