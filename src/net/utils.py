@@ -85,3 +85,18 @@ def y_fmt(y, pos):
             val = y/float(d)
             y_formatted = '{val}{suffix}'.format(val=int(val), suffix=suffix[i])
     return y_formatted
+
+def argmax_with_patience(x, max_patience):
+    max_val = 0.
+    patience = max_patience
+    for i in range(len(x)):
+        if x[i] > max_val:
+            max_val = x[i]
+            argmax = i
+            patience = max_patience
+        else:
+            patience -= 1
+        
+        if patience == 0:
+            break
+    return argmax

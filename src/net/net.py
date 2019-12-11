@@ -4,11 +4,12 @@ import scipy.sparse as sp
 import torch
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
+from sklearn.metrics import roc_auc_score, average_precision_score
 
 
 from netgan import utils
-from net.utils import scores_matrix_from_transition_matrix, update_dict_of_lists, get_plot_grid_size, y_fmt
-
+from net.utils import scores_matrix_from_transition_matrix, update_dict_of_lists, get_plot_grid_size, y_fmt, \
+                      argmax_with_patience
 
 dtype = torch.float32
 
@@ -55,9 +56,12 @@ class OverlapLogger(Logger):
 
 
 class GraphStatisticsLogger(Logger):
-    def __init__(self, train_graph, mixing_coeff=1.0, log_every=100):
+    def __init__(self, train_graph, val_ones, val_zeros, mixing_coeff=1.0, log_every=100):
         self.train_graph = train_graph.toarray()
         self._E = train_graph.sum()
+        self.val_ones = val_ones
+        self.val_zeros = val_zeros
+        self.actual_labels_val = np.append(np.ones(len(val_ones)), np.zeros(len(val_zeros)))
         self.mixing_coeff = mixing_coeff
         self.log_every = log_every
         self.dict_of_lists_of_statistic = {}
@@ -73,15 +77,22 @@ class GraphStatisticsLogger(Logger):
             scores_matrix = sp.csr_matrix(scores_matrix)
             sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
             statistics = utils.compute_graph_statistics(sampled_graph)
+            edge_scores = np.append(scores_matrix[tuple(self.val_ones.T)].A1, 
+                                    scores_matrix[tuple(self.val_zeros.T)].A1)
             statistics['step'] = step
             statistics['overlap'] = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
+            statistics['val_performance'] = (roc_auc_score(self.actual_labels_val, edge_scores),
+                                             average_precision_score(self.actual_labels_val, edge_scores))
             self.dict_of_lists_of_statistic = update_dict_of_lists(self.dict_of_lists_of_statistic, statistics)
 
-    def print_statistics(self, keys):
+    def print_statistics(self, keys, EO_criterion=0.52, max_patience_for_VAL=5):
         n_rows, n_cols = get_plot_grid_size(len(keys))
         f, axs = plt.subplots(n_rows, n_cols, sharex=True, figsize=(12, 12))
         plt.tight_layout(pad=2)
         steps = self.dict_of_lists_of_statistic['step']
+        EO_criterion = np.argmax(np.array(self.dict_of_lists_of_statistic['overlap'])>EO_criterion)
+        sum_val_performances = [np.sum(performances) for performances in self.dict_of_lists_of_statistic['val_performance']]
+        VAL_criterion = argmax_with_patience(sum_val_performances, max_patience=max_patience_for_VAL)
         for row in range(n_rows):
             for col in range(n_cols):
                 i = row * n_cols + col
@@ -94,6 +105,8 @@ class GraphStatisticsLogger(Logger):
                                          xmax=steps[-1],
                                          colors='green',
                                          linestyles='dashed')
+                    axs[row, col].axvline(x=steps[EO_criterion], color='grey', linestyle='dashdot')
+                    axs[row, col].axvline(x=steps[VAL_criterion], color='red', linestyle='dashdot')         
                     axs[row, col].yaxis.set_major_formatter(FuncFormatter(y_fmt))
                 else:
                     axs[row, col].axis('off')
