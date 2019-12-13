@@ -57,16 +57,14 @@ class OverlapLogger(Logger):
 
 
 class OverlapStopper(Logger):
-    def __init__(self, train_graph, mixing_coeff=1.0, EO_criterion=0.5, test_every=100):
+    def __init__(self, train_graph, mixing_coeff=1.0, test_every=100):
         self.train_graph = train_graph.toarray()
         self._E = train_graph.sum()
         self.mixing_coeff = mixing_coeff
         self.test_every = test_every
-        self.EO_criterion = EO_criterion
-        self.stop = False
 
     def log(self, step, loss, x, logits, labels, metrics, model):
-        stop = False
+        overlap = 0
         if step % self.test_every == self.test_every-1:
             transition_matrix = model(torch.arange(start=0, end=self.train_graph.shape[0], dtype=int))
             scores_matrix = scores_matrix_from_transition_matrix(transition_matrix=transition_matrix,
@@ -75,10 +73,8 @@ class OverlapStopper(Logger):
             scores_matrix = sp.csr_matrix(scores_matrix)
             sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
             overlap = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
-            print(f'Step: {step}, Loss: {loss:.5f}, Edge-Overlap: {overlap:.3f}')
-            if overlap>=self.EO_criterion:
-                stop = True                
-        return stop
+            print(f'Step: {step}, Loss: {loss:.5f}, Edge-Overlap: {overlap:.3f}')                
+        return overlap
          
 
 class GraphStatisticsLogger(Logger):
@@ -172,7 +168,7 @@ class Net(object):
         self._optimizer.step()
         return logits, loss.item()
     
-    def train(self, generator, steps, optimizer_fn, optimizer_args):
+    def train(self, generator, steps, optimizer_fn, optimizer_args, EO_criterion=[]):
         self._optimizer = optimizer_fn([self.w_down, self.w_up, self.b_up] ,**optimizer_args)
         for self.step in range(self.step, steps+self.step):
             x, labels = next(generator)
@@ -183,6 +179,8 @@ class Net(object):
             for logger in self.loggers:
                 logger.log(self.step, loss, x, logits, labels, metrics, model=self)
             for stopper in self.stoppers:
-                stop = stopper.log(self.step, loss, x, logits, labels, metrics, model=self)
-                if stop:
-                    return
+                overlap = stopper.log(self.step, loss, x, logits, labels, metrics, model=self)
+                if EO_criterion:
+                    if overlap>EO_criterion:
+                        return
+
