@@ -173,7 +173,7 @@ class Net(object):
         return logits, loss.item()
     
     def train(self, generator, steps, optimizer_fn, optimizer_args):
-        self._optimizer = optimizer_fn([self.w_down, self.w_up] ,**optimizer_args)
+        self._optimizer = optimizer_fn([self.w_down, self.w_up, self.b_up] ,**optimizer_args)
         for self.step in range(self.step, steps+self.step):
             x, labels = next(generator)
             logits, loss = self._train_step(x, labels)
