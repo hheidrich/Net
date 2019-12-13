@@ -97,3 +97,41 @@ def argmax_with_patience(x, max_patience):
         if patience == 0:
             break
     return argmax
+
+
+def translate_key_for_plot(key):
+    translated_key = ''
+    if key=='d_max':
+        translated_key = 'Max. degree'
+    if key=='d_min':
+        translated_key = 'Min. degree'
+    if key=='d':
+        translated_key = 'Average degree'
+    if key=='LCC':
+        translated_key = 'LCC'
+    if key=='wedge_count':
+        translated_key = 'Wedge count'
+    if key=='claw_count':
+        translated_key = 'Claw count'
+    if key=='triangle_count':
+        translated_key = 'Triangle count'
+    if key=='square_count':
+        translated_key = 'Square count'
+    if key=='power_law_exp':
+        translated_key = 'Power law exp.'
+    if key=='gini':
+        translated_key = 'Gini coeff.'
+    if key=='rel_edge_distr_entropy':
+        translated_key = 'Rel. edge distr. entropy'
+    if key=='assortativity':
+        translated_key = 'Assortativity'
+    if key=='clustering_coefficient':
+        translated_key = 'Clustering coeff.'
+    if key=='n_components':
+        translated_key = 'Number of components'
+    if key=='cpl':
+        translated_key = 'Charac. path len'   
+    if key=='overlap':
+        translated_key = 'Edge overlap'        
+    return translated_key
+        

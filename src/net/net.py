@@ -9,7 +9,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 
 from netgan import utils
 from net.utils import scores_matrix_from_transition_matrix, update_dict_of_lists, get_plot_grid_size, y_fmt, \
-                      argmax_with_patience
+                      argmax_with_patience, translate_key_for_plot
 
 dtype = torch.float32
 
@@ -108,10 +108,11 @@ class GraphStatisticsLogger(Logger):
             self.dict_of_lists_of_statistic = update_dict_of_lists(self.dict_of_lists_of_statistic, statistics)
 
     def print_statistics(self, keys, EO_criterion=0.52, max_patience_for_VAL=5):
-        n_rows, n_cols = get_plot_grid_size(len(keys))
-        f, axs = plt.subplots(n_rows, n_cols, sharex=True, figsize=(12, 12))
+        n_cols, n_rows = get_plot_grid_size(len(keys))
+        plt.rcParams.update({'font.size': 16})
+        f, axs = plt.subplots(n_rows, n_cols, sharex=True, figsize=(18, 12))
         axs = np.array(axs).reshape(n_rows, n_cols)
-        plt.tight_layout(pad=2)
+        plt.tight_layout(pad=2.5)
         steps = self.dict_of_lists_of_statistic['step']
         EO_criterion = np.argmax(np.array(self.dict_of_lists_of_statistic['overlap'])>EO_criterion)
         sum_val_performances = [np.sum(performances) for performances in self.dict_of_lists_of_statistic['val_performance']]
@@ -121,8 +122,7 @@ class GraphStatisticsLogger(Logger):
                 i = row * n_cols + col
                 if i < len(keys):
                     key = keys[row * n_cols + col]
-                    axs[row, col].set_title(key)
-                    axs[row, col].plot(steps, self.dict_of_lists_of_statistic[key])
+                    axs[row, col].plot(steps, self.dict_of_lists_of_statistic[key], color='black')
                     axs[row, col].hlines(y=self.reference_dict_of_statistics[key],
                                          xmin=steps[0],
                                          xmax=steps[-1],
@@ -131,10 +131,12 @@ class GraphStatisticsLogger(Logger):
                     axs[row, col].axvline(x=steps[EO_criterion], color='grey', linestyle='dashdot')
                     axs[row, col].axvline(x=steps[VAL_criterion], color='red', linestyle='dashdot')         
                     axs[row, col].yaxis.set_major_formatter(FuncFormatter(y_fmt))
+                    axs[row, col].set_xlabel('Training iteration')               
+                    axs[row, col].set_ylabel(translate_key_for_plot(key))
                 else:
                     axs[row, col].axis('off')
         plt.show()
-
+#         plt.savefig('our_statistics_during_training.pdf', format='pdf')
 
 
 class Net(object):
