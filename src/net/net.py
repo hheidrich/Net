@@ -42,6 +42,7 @@ class OverlapLogger(Logger):
         self._E = train_graph.sum()
         self.mixing_coeff = mixing_coeff
         self.print_every = print_every
+        self.EO_criterion = EO_criterion
 
     def log(self, step, loss, x, logits, labels, metrics, model):
         if step % self.print_every == self.print_every-1:
@@ -54,6 +55,31 @@ class OverlapLogger(Logger):
             overlap = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
             print(f'Step: {step}, Loss: {loss:.5f}, Edge-Overlap: {overlap:.3f}')
 
+
+class OverlapStopper(Logger):
+    def __init__(self, train_graph, mixing_coeff=1.0, EO_criterion=0.5, test_every=100):
+        self.train_graph = train_graph.toarray()
+        self._E = train_graph.sum()
+        self.mixing_coeff = mixing_coeff
+        self.test_every = test_every
+        self.EO_criterion = EO_criterion
+        self.stop = False
+
+    def log(self, step, loss, x, logits, labels, metrics, model):
+        stop = False
+        if step % self.test_every == self.test_every-1:
+            transition_matrix = model(torch.arange(start=0, end=self.train_graph.shape[0], dtype=int))
+            scores_matrix = scores_matrix_from_transition_matrix(transition_matrix=transition_matrix,
+                                                                 symmetric=True,
+                                                                 mixing_coeff=self.mixing_coeff)
+            scores_matrix = sp.csr_matrix(scores_matrix)
+            sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
+            overlap = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
+            print(f'Step: {step}, Loss: {loss:.5f}, Edge-Overlap: {overlap:.3f}')
+            if overlap>=self.EO_criterion:
+                stop = True                
+        return stop
+         
 
 class GraphStatisticsLogger(Logger):
     def __init__(self, train_graph, val_ones, val_zeros, mixing_coeff=1.0, log_every=100):
@@ -115,11 +141,13 @@ class GraphStatisticsLogger(Logger):
 
 
 class Net(object):
-    def __init__(self, N, H, affine=False, loss_fn=torch.nn.functional.cross_entropy, loggers=[], metric_fns={}):
+    def __init__(self, N, H, affine=False, loss_fn=torch.nn.functional.cross_entropy, loggers=[], metric_fns={}, 
+                 stoppers=[]):
         self.affine = affine
         self.step = 0
         self.loss_fn = loss_fn
         self.loggers = loggers
+        self.stoppers = stoppers
         self.metric_fns = metric_fns
         self._optimizer = None
         self.w_down = (0.1 * torch.randn(N, H, device=device, dtype=dtype)).clone().detach().requires_grad_()
@@ -154,3 +182,7 @@ class Net(object):
                 metrics[metric_name] = metric_fn(x, logits, labels)
             for logger in self.loggers:
                 logger.log(self.step, loss, x, logits, labels, metrics, model=self)
+            for stopper in self.stoppers:
+                stop = stopper.log(self.step, loss, x, logits, labels, metrics, model=self)
+                if stop:
+                    return
