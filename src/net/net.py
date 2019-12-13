@@ -110,6 +110,7 @@ class GraphStatisticsLogger(Logger):
     def print_statistics(self, keys, EO_criterion=0.52, max_patience_for_VAL=5):
         n_rows, n_cols = get_plot_grid_size(len(keys))
         f, axs = plt.subplots(n_rows, n_cols, sharex=True, figsize=(12, 12))
+        axs = np.array(axs).reshape(n_rows, n_cols)
         plt.tight_layout(pad=2)
         steps = self.dict_of_lists_of_statistic['step']
         EO_criterion = np.argmax(np.array(self.dict_of_lists_of_statistic['overlap'])>EO_criterion)
