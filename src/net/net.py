@@ -7,7 +7,8 @@ from matplotlib.ticker import FuncFormatter
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 
-from netgan import utils
+# from netgan import utils
+from net import utils_netgan as utils
 from net.utils import scores_matrix_from_transition_matrix, update_dict_of_lists, get_plot_grid_size, y_fmt, \
                       argmax_with_patience, translate_key_for_plot
 
