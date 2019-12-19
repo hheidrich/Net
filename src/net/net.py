@@ -38,18 +38,16 @@ class BasicPrintLogger(Logger):
 
 
 class OverlapLogger(Logger):
-    def __init__(self, train_graph, mixing_coeff=1.0, print_every=100):
+    def __init__(self, train_graph, print_every=100):
         self.train_graph = train_graph.toarray()
         self._E = train_graph.sum()
-        self.mixing_coeff = mixing_coeff
         self.print_every = print_every
 
     def log(self, step, loss, x, logits, labels, metrics, model):
         if step % self.print_every == self.print_every-1:
             transition_matrix = model(torch.arange(start=0, end=self.train_graph.shape[0], dtype=int))
             scores_matrix = scores_matrix_from_transition_matrix(transition_matrix=transition_matrix,
-                                                                 symmetric=True,
-                                                                 mixing_coeff=self.mixing_coeff)
+                                                                 symmetric=True)
             scores_matrix = sp.csr_matrix(scores_matrix)
             sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
             overlap = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
@@ -57,10 +55,9 @@ class OverlapLogger(Logger):
 
 
 class OverlapStopper(Logger):
-    def __init__(self, train_graph, mixing_coeff=1.0, test_every=100):
+    def __init__(self, train_graph, test_every=100):
         self.train_graph = train_graph.toarray()
         self._E = train_graph.sum()
-        self.mixing_coeff = mixing_coeff
         self.test_every = test_every
 
     def log(self, step, loss, x, logits, labels, metrics, model):
@@ -68,8 +65,7 @@ class OverlapStopper(Logger):
         if step % self.test_every == self.test_every-1:
             transition_matrix = model(torch.arange(start=0, end=self.train_graph.shape[0], dtype=int))
             scores_matrix = scores_matrix_from_transition_matrix(transition_matrix=transition_matrix,
-                                                                 symmetric=True,
-                                                                 mixing_coeff=self.mixing_coeff)
+                                                                 symmetric=True)
             scores_matrix = sp.csr_matrix(scores_matrix)
             sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
             overlap = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
@@ -78,13 +74,12 @@ class OverlapStopper(Logger):
          
 
 class GraphStatisticsLogger(Logger):
-    def __init__(self, train_graph, val_ones, val_zeros, mixing_coeff=1.0, log_every=100):
+    def __init__(self, train_graph, val_ones, val_zeros, log_every=100):
         self.train_graph = train_graph.toarray()
         self._E = train_graph.sum()
         self.val_ones = val_ones
         self.val_zeros = val_zeros
         self.actual_labels_val = np.append(np.ones(len(val_ones)), np.zeros(len(val_zeros)))
-        self.mixing_coeff = mixing_coeff
         self.log_every = log_every
         self.dict_of_lists_of_statistic = {}
         self.reference_dict_of_statistics = utils.compute_graph_statistics(self.train_graph)
@@ -94,8 +89,7 @@ class GraphStatisticsLogger(Logger):
         if step % self.log_every == self.log_every-1:
             transition_matrix = model(torch.arange(start=0, end=self.train_graph.shape[0], dtype=int))
             scores_matrix = scores_matrix_from_transition_matrix(transition_matrix=transition_matrix,
-                                                                 symmetric=True,
-                                                                 mixing_coeff=self.mixing_coeff)
+                                                                 symmetric=True)
             scores_matrix = sp.csr_matrix(scores_matrix)
             sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
             statistics = utils.compute_graph_statistics(sampled_graph)
@@ -252,31 +246,46 @@ class NetWithoutSampling(object):
 
 
 class OverlapLoggerWithoutSampling(Logger):
-    def __init__(self, train_graph, mixing_coeff=1.0, print_every=100):
+    def __init__(self, train_graph, print_every=100):
         self.train_graph = train_graph.toarray()
         self._E = train_graph.sum()
-        self.mixing_coeff = mixing_coeff
         self.print_every = print_every
 
     def log(self, step, loss, x, logits, labels, metrics, model):
         if step % self.print_every == self.print_every-1:
             transition_matrix = model()
             scores_matrix = scores_matrix_from_transition_matrix(transition_matrix=transition_matrix,
-                                                                 symmetric=True,
-                                                                 mixing_coeff=self.mixing_coeff)
+                                                                 symmetric=True)
             scores_matrix = sp.csr_matrix(scores_matrix)
             sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
             overlap = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
             print(f'Step: {step}, Loss: {loss:.5f}, Edge-Overlap: {overlap:.3f}')
+
+class OverlapStopperWithoutSampling(Logger):
+    def __init__(self, train_graph, test_every=100):
+        self.train_graph = train_graph.toarray()
+        self._E = train_graph.sum()
+        self.test_every = test_every
+
+    def log(self, step, loss, x, logits, labels, metrics, model):
+        overlap = 0
+        if step % self.test_every == self.test_every-1:
+            transition_matrix = model()
+            scores_matrix = scores_matrix_from_transition_matrix(transition_matrix=transition_matrix,
+                                                                 symmetric=True)
+            scores_matrix = sp.csr_matrix(scores_matrix)
+            sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
+            overlap = utils.edge_overlap(self.train_graph, sampled_graph)/self._E
+            print(f'Step: {step}, Loss: {loss:.5f}, Edge-Overlap: {overlap:.3f}')                
+        return overlap            
             
 class GraphStatisticsLoggerWithoutSampling(Logger):
-    def __init__(self, train_graph, val_ones, val_zeros, mixing_coeff=1.0, log_every=100):
+    def __init__(self, train_graph, val_ones, val_zeros, log_every=100):
         self.train_graph = train_graph.toarray()
         self._E = train_graph.sum()
         self.val_ones = val_ones
         self.val_zeros = val_zeros
         self.actual_labels_val = np.append(np.ones(len(val_ones)), np.zeros(len(val_zeros)))
-        self.mixing_coeff = mixing_coeff
         self.log_every = log_every
         self.dict_of_lists_of_statistic = {}
         self.reference_dict_of_statistics = utils.compute_graph_statistics(self.train_graph)
@@ -286,8 +295,7 @@ class GraphStatisticsLoggerWithoutSampling(Logger):
         if step % self.log_every == self.log_every-1:
             transition_matrix = model()
             scores_matrix = scores_matrix_from_transition_matrix(transition_matrix=transition_matrix,
-                                                                 symmetric=True,
-                                                                 mixing_coeff=self.mixing_coeff)
+                                                                 symmetric=True)
             scores_matrix = sp.csr_matrix(scores_matrix)
             sampled_graph = utils.graph_from_scores(scores_matrix, self._E)
             statistics = utils.compute_graph_statistics(sampled_graph)
