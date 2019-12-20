@@ -2,11 +2,13 @@ import networkx as nx
 import scipy.sparse as sp
 import numpy as np
 from scipy.sparse.csgraph import connected_components, minimum_spanning_tree
+from scipy.sparse.linalg import eigs
 import warnings
 from matplotlib import pyplot as plt
 import igraph
 import powerlaw
 from numba import jit
+
 
 
 def load_npz(file_name):
@@ -704,6 +706,14 @@ def statistics_compute_cpl(A):
     P = sp.csgraph.shortest_path(sp.csr_matrix(A))
     return P[((1 - np.isinf(P)) * (1 - np.eye(P.shape[0]))).astype(np.bool)].mean()
 
+def statistics_smallest_eigvals_of_LCC(A):
+    """Computes few smallest eigenvalues of graph Laplacian, restricted to largest connected component."""
+    G = nx.from_numpy_matrix(A)
+    Gc = G.subgraph(max(nx.connected_components(G), key=len))
+    L = nx.normalized_laplacian_matrix(Gc)
+    vals, vecs = eigs(L, k=2, sigma=0)
+    return np.real(vals)
+
 
 def compute_graph_statistics(A_in, Z_obs=None):
     """
@@ -763,30 +773,25 @@ def compute_graph_statistics(A_in, Z_obs=None):
 
     # Square count
     statistics['square_count'] = statistics_square_count(A)
-#     print('a')    
     # power law exponent
     statistics['power_law_exp'] = statistics_power_law_alpha(A)
-#     print('b')   
     # gini coefficient
     statistics['gini'] = statistics_gini(A)
-#     print('c')    
     # Relative edge distribution entropy
     statistics['rel_edge_distr_entropy'] = statistics_edge_distribution_entropy(A)
-#     print('d')    
     # Assortativity
     statistics['assortativity'] = nx.degree_assortativity_coefficient(A_graph)
-#     print('e')    
     # Clustering coefficient
     statistics['clustering_coefficient'] = 3 * statistics['triangle_count'] / statistics['claw_count']    
     # Number of connected components
-#     print('f')
     statistics['n_components'] = connected_components(A)[0]
-#     print('g')
     if Z_obs is not None:
         # inter- and intra-community density
         intra, inter = statistics_cluster_props(A, Z_obs)
         statistics['intra_community_density'] = intra
         statistics['inter_community_density'] = inter
-#     print('h')
     statistics['cpl'] = statistics_compute_cpl(A)
+    # Spectral gap of largest connected component
+    eigvals = statistics_smallest_eigvals_of_LCC(A)
+    statistics['spectral_gap'] = eigvals[1] - eigvals[0]
     return statistics

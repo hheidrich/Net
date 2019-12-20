@@ -132,6 +132,8 @@ def translate_key_for_plot(key):
     if key=='cpl':
         translated_key = 'Charac. path len'   
     if key=='overlap':
-        translated_key = 'Edge overlap'        
+        translated_key = 'Edge overlap'   
+    if key=='spectral_gap':
+        translated_key = 'Spectral gap'         
     return translated_key
         
