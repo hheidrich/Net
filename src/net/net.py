@@ -129,7 +129,7 @@ class GraphStatisticsLogger(Logger):
                     axs[row, col].set_ylabel(translate_key_for_plot(key), labelpad=2)
                 else:
                     axs[row, col].axis('off')
-#         plt.savefig('our_statistics_during_training.pdf', format='pdf')                    
+#         plt.savefig('../fig/our_statistics_during_training.pdf', format='pdf')                    
         plt.show()
 
 
@@ -335,5 +335,5 @@ class GraphStatisticsLoggerWithoutSampling(Logger):
                     axs[row, col].set_ylabel(translate_key_for_plot(key), labelpad=2)
                 else:
                     axs[row, col].axis('off')
-#         plt.savefig('our_statistics_during_training.pdf', format='pdf')                    
+#         plt.savefig('../fig/our_statistics_during_training.pdf', format='pdf')                    
         plt.show()            
