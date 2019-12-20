@@ -711,7 +711,7 @@ def statistics_smallest_eigvals_of_LCC(A):
     G = nx.from_numpy_matrix(A)
     Gc = G.subgraph(max(nx.connected_components(G), key=len))
     L = nx.normalized_laplacian_matrix(Gc)
-    vals, vecs = eigs(L, k=2, sigma=0)
+    vals, vecs = eigs(L, k=2, sigma=-0.0001)
     return np.real(vals)
 
 
