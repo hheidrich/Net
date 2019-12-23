@@ -219,9 +219,12 @@ class NetWithoutSampling(object):
         return torch.nn.functional.softmax(self.predict_logits(), dim=-1).detach().numpy()
     
     def predict_logits(self):
-        logits = self.w_down @ self.w_up
+        assert not np.isnan(self.w_down.detach().numpy()).any(), f"Step: {self.step}"
+        assert not np.isnan(self.w_up.detach().numpy()).any(), f"Step: {self.step}"
+        logits = torch.mm(self.w_down, self.w_up)
         if self.affine:
             logits += self.b_up
+        assert not np.isnan(logits.detach().numpy()).any(), f"Step: {self.step}"
         return logits
     
     def _train_step(self):

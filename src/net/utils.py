@@ -42,7 +42,7 @@ def scores_matrix_from_transition_matrix(transition_matrix, mixing_coeff=1, symm
 
     """
     N = transition_matrix.shape[0]
-    p_stationary = np.real(eigs(transition_matrix.T, k=1, sigma=1.00001)[1])
+    p_stationary = np.real(eigs(transition_matrix.T, k=1, sigma=0.99999)[1])
     p_stationary /= p_stationary.sum()
     p_marginal = mixing_coeff * p_stationary + ((1 - mixing_coeff) / N) * np.ones_like(p_stationary)
     scores_matrix = np.maximum(p_marginal * transition_matrix, 0)
