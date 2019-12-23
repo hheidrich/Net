@@ -2,6 +2,23 @@ import numpy as np
 import torch
 from scipy.sparse.linalg import eigs
 
+def configuration_model(A, B):
+    """Given two graphs A and B with same amount of edges, generates new graph by keeping overlapping edges,
+       and rewiring remaining edges such that degrees of nodes in A are preserved. Self-loops and multiple 
+       edges are removed."""
+    configuration_graph = A * B
+    degrees = (A.sum(axis=-1) - configuration_graph.sum(axis=-1)).astype(int)
+    stubs = np.zeros(degrees.sum())
+    counter = 0
+    for i in degrees.nonzero()[0]:
+        stubs[counter: counter+degrees[i]] = i * np.ones(degrees[i])
+        counter += degrees[i]
+    np.random.shuffle(stubs)
+    stubs = stubs.reshape(-1, 2).astype(int)
+    configuration_graph[stubs[:, 0], stubs[:, 1]] = 1
+    configuration_graph[stubs[:, 1], stubs[:, 0]] = 1  
+    np.fill_diagonal(configuration_graph, 0)
+    return configuration_graph
 
 def net_walker(walker):
     rw_generator = walker.walk()
