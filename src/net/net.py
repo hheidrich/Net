@@ -293,6 +293,9 @@ class GraphStatisticsLoggerWithoutSampling(Logger):
         self.dict_of_lists_of_statistic = {}
         self.reference_dict_of_statistics = utils.compute_graph_statistics(self.train_graph)
         self.reference_dict_of_statistics['overlap'] = 1
+       
+    def __call__(self):
+        return self.dict_of_lists_of_statistic
 
     def log(self, step, loss, x, logits, labels, metrics, model):
         if step % self.log_every == self.log_every-1:
