@@ -15,7 +15,7 @@ from net.utils import scores_matrix_from_transition_matrix, update_dict_of_lists
 dtype = torch.float32
 
 if torch.cuda.is_available():
-    device = 'cuda'
+    device = 'cpu'
 else:
     device = 'cpu'
 
@@ -227,12 +227,18 @@ class NetWithoutSampling(object):
         assert not np.isnan(logits.detach().numpy()).any(), f"Step: {self.step}"
         return logits
     
-    def _train_step(self):
+    def _closure(self):
         logits = self.predict_logits()
         loss = weighted_logreg_loss(logits=logits, W=self.W)
         self._optimizer.zero_grad()
         loss.backward()
-        self._optimizer.step()
+        self._logits = logits
+        return loss
+        
+    def _train_step(self):
+        loss = self._optimizer.step(self._closure)
+        logits = self._logits
+        del self._logits
         return logits, loss.item()
     
     def train(self, steps, optimizer_fn, optimizer_args, EO_criterion=None):
