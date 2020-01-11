@@ -197,8 +197,9 @@ def weighted_logreg_loss(logits, W):
     -------
     loss: torch.tensor (float)
             Loss at logits.
-    """    
-    d = torch.log(torch.exp(logits).sum(axis=-1, keepdims=True))
+    """
+    logits -= logits.max(dim=-1, keepdims=True)[0]
+    d = torch.log(torch.exp(logits).sum(dim=-1, keepdims=True))
     loss = torch.sum(W * (d * torch.ones_like(W) - logits))
     return loss    
                     

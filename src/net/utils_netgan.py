@@ -1,6 +1,7 @@
 import networkx as nx
 import scipy.sparse as sp
 import numpy as np
+import scipy.sparse as sp
 from scipy.sparse.csgraph import connected_components, minimum_spanning_tree
 from scipy.sparse.linalg import eigs
 import warnings
@@ -432,44 +433,36 @@ def graph_from_scores(scores, n_edges):
 
     """
 
-    if  len(scores.nonzero()[0]) < n_edges:
-        return symmetric(scores) > 0
-
-    target_g = np.zeros(scores.shape) # initialize target graph
-    scores_int = scores.toarray().copy() # internal copy of the scores matrix
-    scores_int[np.diag_indices_from(scores_int)] = 0  # set diagonal to zero
-    degrees_int = scores_int.sum(0)   # The row sum over the scores.
+    #target_g = np.zeros(scores.shape) # initialize target graph
+    target_g = sp.csr_matrix(scores.shape)
+    
+    #scores_int = scores #.toarray().copy() # internal copy of the scores matrix
+    
+    # scores_int[np.diag_indices_from(scores_int)] = 0  # set diagonal to zero
+    np.fill_diagonal(scores, 0)
+    
+    degrees = scores.sum(1)   # The row sum over the scores.
 
     N = scores.shape[0]
 
-    for n in np.random.choice(N, replace=False, size=N): # Iterate the nodes in random order
-
-        row = scores_int[n,:].copy()
-        if row.sum() == 0:
-            continue
-
-        probs = row / row.sum()
-
-        target = np.random.choice(N, p=probs)
+    for n in range(N): # Iterate over the nodes
+        target = np.random.choice(N, p=scores[n]/degrees[n])
         target_g[n, target] = 1
         target_g[target, n] = 1
 
 
     diff = np.round((n_edges - target_g.sum())/2)
     if diff > 0:
-
-        triu = np.triu(scores_int)
-        triu[target_g > 0] = 0
-        triu[np.diag_indices_from(scores_int)] = 0
+        triu = np.triu(scores)
+        triu[target_g.nonzero()] = 0
         triu = triu / triu.sum()
 
-        triu_ixs = np.triu_indices_from(scores_int)
+        triu_ixs = np.triu_indices_from(scores)
         extra_edges = np.random.choice(triu_ixs[0].shape[0], replace=False, p=triu[triu_ixs], size=int(diff))
 
         target_g[(triu_ixs[0][extra_edges], triu_ixs[1][extra_edges])] = 1
         target_g[(triu_ixs[1][extra_edges], triu_ixs[0][extra_edges])] = 1
 
-    target_g = symmetric(target_g)
     return target_g
 
 
