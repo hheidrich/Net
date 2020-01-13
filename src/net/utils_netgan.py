@@ -1,6 +1,7 @@
 import networkx as nx
 import scipy.sparse as sp
 import numpy as np
+import scipy.sparse as sp
 from scipy.sparse.csgraph import connected_components, minimum_spanning_tree
 from scipy.sparse.linalg import eigs
 import warnings
@@ -13,17 +14,14 @@ from numba import jit
 
 def load_npz(file_name):
     """Load a SparseGraph from a Numpy binary file.
-
     Parameters
     ----------
     file_name : str
         Name of the file to load.
-
     Returns
     -------
     sparse_graph : SparseGraph
         Graph in sparse matrix format.
-
     """
     if not file_name.endswith('.npz'):
         file_name += '.npz'
@@ -45,19 +43,16 @@ def load_npz(file_name):
 
 def largest_connected_components(adj, n_components=1):
     """Select the largest connected components in the graph.
-
     Parameters
     ----------
     sparse_graph : SparseGraph
         Input graph.
     n_components : int, default 1
         Number of largest connected components to keep.
-
     Returns
     -------
     sparse_graph : SparseGraph
         Subgraph of the input graph where only the nodes in largest n_components are kept.
-
     """
     _, component_indices = connected_components(adj)
     component_sizes = np.bincount(component_indices)
@@ -74,7 +69,6 @@ def largest_connected_components(adj, n_components=1):
 def edges_to_sparse(edges, N, values=None):
     """
     Create a sparse adjacency matrix from an array of edge indices and (optionally) values.
-
     Parameters
     ----------
     edges : array-like, shape [n_edges, 2]
@@ -83,12 +77,10 @@ def edges_to_sparse(edges, N, values=None):
         Number of nodes
     values : array_like, shape [n_edges]
         The values to put at the specified edge indices. Optional, default: np.ones(.)
-
     Returns
     -------
     A : scipy.sparse.csr.csr_matrix
         Sparse adjacency matrix
-
     """
     if values is None:
         values = np.ones(edges.shape[0])
@@ -102,7 +94,6 @@ def train_val_test_split_adjacency(A, p_val=0.10, p_test=0.05, seed=0, neg_mul=1
     """
     Split the edges of the adjacency matrix into train, validation and test edges
     and randomly samples equal amount of validation and test non-edges.
-
     Parameters
     ----------
     A : scipy.sparse.spmatrix
@@ -131,7 +122,6 @@ def train_val_test_split_adjacency(A, p_val=0.10, p_test=0.05, seed=0, neg_mul=1
         Otherwise use a while loop.
     asserts : bool
         Unit test like checks. Default asserts=False
-
     Returns
     -------
     train_ones : array-like, shape [n_train, 2]
@@ -144,7 +134,6 @@ def train_val_test_split_adjacency(A, p_val=0.10, p_test=0.05, seed=0, neg_mul=1
         Indices of the test edges
     test_zeros : array-like, shape [n_test, 2]
         Indices of the test non-edges
-
     """
     assert p_val + p_test > 0
     assert A.max() == 1  # no weights
@@ -312,13 +301,11 @@ def score_matrix_from_random_walks(random_walks, N, symmetric=True):
        The number of nodes
     symmetric: bool, default: True
                Whether to symmetrize the resulting scores matrix.
-
     Returns
     -------
     scores_matrix: sparse matrix, shape (N, N)
                    Matrix whose entries (i,j) correspond to the number of times a transition from node i to j was
                    observed in the input random walks.
-
     """
 
     random_walks = np.array(random_walks)
@@ -397,14 +384,12 @@ def edge_overlap(A, B):
     """
     Compute edge overlap between input graphs A and B, i.e. how many edges in A are also present in graph B. Assumes
     that both graphs contain the same number of edges.
-
     Parameters
     ----------
     A: sparse matrix or np.array of shape (N,N).
        First input adjacency matrix.
     B: sparse matrix or np.array of shape (N,N).
        Second input adjacency matrix.
-
     Returns
     -------
     float, the edge overlap.
@@ -417,59 +402,48 @@ def graph_from_scores(scores, n_edges):
     """
     Assemble a symmetric binary graph from the input score matrix. Ensures that there will be no singleton nodes.
     See the paper for details.
-
     Parameters
     ----------
     scores: np.array of shape (N,N)
             The input transition scores.
     n_edges: int
              The desired number of edges in the target graph.
-
     Returns
     -------
     target_g: symmettic binary sparse matrix of shape (N,N)
               The assembled graph.
-
     """
 
-    if  len(scores.nonzero()[0]) < n_edges:
-        return symmetric(scores) > 0
-
-    target_g = np.zeros(scores.shape) # initialize target graph
-    scores_int = scores.toarray().copy() # internal copy of the scores matrix
-    scores_int[np.diag_indices_from(scores_int)] = 0  # set diagonal to zero
-    degrees_int = scores_int.sum(0)   # The row sum over the scores.
+    #target_g = np.zeros(scores.shape) # initialize target graph
+    target_g = sp.csr_matrix(scores.shape)
+    
+    #scores_int = scores #.toarray().copy() # internal copy of the scores matrix
+    
+    # scores_int[np.diag_indices_from(scores_int)] = 0  # set diagonal to zero
+    np.fill_diagonal(scores, 0)
+    
+    degrees = scores.sum(1)   # The row sum over the scores.
 
     N = scores.shape[0]
 
-    for n in np.random.choice(N, replace=False, size=N): # Iterate the nodes in random order
-
-        row = scores_int[n,:].copy()
-        if row.sum() == 0:
-            continue
-
-        probs = row / row.sum()
-
-        target = np.random.choice(N, p=probs)
+    for n in range(N): # Iterate over the nodes
+        target = np.random.choice(N, p=scores[n]/degrees[n])
         target_g[n, target] = 1
         target_g[target, n] = 1
 
 
     diff = np.round((n_edges - target_g.sum())/2)
     if diff > 0:
-
-        triu = np.triu(scores_int)
-        triu[target_g > 0] = 0
-        triu[np.diag_indices_from(scores_int)] = 0
+        triu = np.triu(scores)
+        triu[target_g.nonzero()] = 0
         triu = triu / triu.sum()
 
-        triu_ixs = np.triu_indices_from(scores_int)
+        triu_ixs = np.triu_indices_from(scores)
         extra_edges = np.random.choice(triu_ixs[0].shape[0], replace=False, p=triu[triu_ixs], size=int(diff))
 
         target_g[(triu_ixs[0][extra_edges], triu_ixs[1][extra_edges])] = 1
         target_g[(triu_ixs[1][extra_edges], triu_ixs[0][extra_edges])] = 1
 
-    target_g = symmetric(target_g)
     return target_g
 
 
@@ -482,12 +456,10 @@ def symmetric(directed_adjacency, clip_to_one=True):
                         Input adjacency matrix.
     clip_to_one: bool, default: True
                  Whether the output should be binarized (i.e. clipped to 1)
-
     Returns
     -------
     A_symmetric: sparse matrix or np.array of the same shape as the input
                  Symmetrized adjacency matrix.
-
     """
 
     A_symmetric = directed_adjacency + directed_adjacency.T
@@ -502,7 +474,6 @@ def squares(g):
     ----------
     g: igraph Graph object
        The input graph.
-
     Returns
     -------
     List with N entries (N is number of nodes) that give the number of squares a node is part of.
@@ -521,7 +492,6 @@ def squares(g):
 def statistics_degrees(A_in):
     """
     Compute min, max, mean degree
-
     Parameters
     ----------
     A_in: sparse matrix or np.array
@@ -538,7 +508,6 @@ def statistics_degrees(A_in):
 def statistics_LCC(A_in):
     """
     Compute the size of the largest connected component (LCC)
-
     Parameters
     ----------
     A_in: sparse matrix or np.array
@@ -546,7 +515,6 @@ def statistics_LCC(A_in):
     Returns
     -------
     Size of LCC
-
     """
 
     unique, counts = np.unique(connected_components(A_in)[1], return_counts=True)
@@ -557,12 +525,10 @@ def statistics_LCC(A_in):
 def statistics_wedge_count(A_in):
     """
     Compute the wedge count of the input graph
-
     Parameters
     ----------
     A_in: sparse matrix or np.array
           The input adjacency matrix.
-
     Returns
     -------
     The wedge count.
@@ -575,12 +541,10 @@ def statistics_wedge_count(A_in):
 def statistics_claw_count(A_in):
     """
     Compute the claw count of the input graph
-
     Parameters
     ----------
     A_in: sparse matrix or np.array
           The input adjacency matrix.
-
     Returns
     -------
     Claw count
@@ -593,7 +557,6 @@ def statistics_claw_count(A_in):
 def statistics_triangle_count(A_in):
     """
     Compute the triangle count of the input graph
-
     Parameters
     ----------
     A_in: sparse matrix or np.array
@@ -612,7 +575,6 @@ def statistics_triangle_count(A_in):
 def statistics_square_count(A_in):
     """
     Compute the square count of the input graph
-
     Parameters
     ----------
     A_in: sparse matrix or np.array
@@ -629,12 +591,10 @@ def statistics_square_count(A_in):
 def statistics_power_law_alpha(A_in):
     """
     Compute the power law coefficient of the degree distribution of the input graph
-
     Parameters
     ----------
     A_in: sparse matrix or np.array
           The input adjacency matrix.
-
     Returns
     -------
     Power law coefficient
@@ -647,12 +607,10 @@ def statistics_power_law_alpha(A_in):
 def statistics_gini(A_in):
     """
     Compute the Gini coefficient of the degree distribution of the input graph
-
     Parameters
     ----------
     A_in: sparse matrix or np.array
           The input adjacency matrix.
-
     Returns
     -------
     Gini coefficient
@@ -669,12 +627,10 @@ def statistics_gini(A_in):
 def statistics_edge_distribution_entropy(A_in):
     """
     Compute the relative edge distribution entropy of the input graph.
-
     Parameters
     ----------
     A_in: sparse matrix or np.array
           The input adjacency matrix.
-
     Returns
     -------
     Rel. edge distribution entropy
@@ -717,7 +673,6 @@ def statistics_smallest_eigvals_of_LCC(A):
 
 def compute_graph_statistics(A_in, Z_obs=None):
     """
-
     Parameters
     ----------
     A_in: sparse matrix
