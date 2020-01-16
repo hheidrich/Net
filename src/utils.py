@@ -335,3 +335,11 @@ def link_prediction_performance(scores_matrix, val_ones, val_zeros):
                             scores_matrix[val_zeros[:,0], val_zeros[:,1]])
     return roc_auc_score(actual_labels_val, edge_scores), average_precision_score(actual_labels_val, edge_scores)
     
+
+def get_plot_grid_size(k):
+    rows = int(np.ceil(np.sqrt(k)))
+    if k <= rows * (rows - 1):
+        cols = rows - 1
+    else:
+        cols = rows
+    return rows, cols
