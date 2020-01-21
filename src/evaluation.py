@@ -42,6 +42,14 @@ class Evaluation(object):
         
         dicts = [utils.load_dict(get_filename(idx)) for idx in range(self.num_experiments)]
         return dicts
+
+    def load_graph(self, experiment, step):
+        graph_path = os.path.join(self.experiment_root,
+                                  f'Experiment_{experiment:0{self.str_exp_len}d}',
+                                  'sampled_graphs',
+                                  f'graph_{step:0{self.step_len}d}.npz')
+        graph = load_npz(graph_path)
+        return graph
     
     def compute_statistics(self):
         # parse experiment root folder
@@ -55,10 +63,10 @@ class Evaluation(object):
         avg_precs = self._load_avg_precs()
         timings = self._load_timings()
         
-        steps = max(timings[0].keys())
-        step_len = len(str(steps))
+        self.steps = max(timings[0].keys())
+        self.step_len = len(str(self.steps))
         step_idxs = len(timings[0].keys())
-        invoke_every = steps // step_idxs
+        self.invoke_every = self.steps // step_idxs
         
         statistics = {name: np.zeros([self.num_experiments,
                                       step_idxs]) for name in self.statistic_fns.keys()}
@@ -69,15 +77,10 @@ class Evaluation(object):
             statistics['Average Precision'] = np.zeros([self.num_experiments, step_idxs])
         statistics['Time (s)'] = np.zeros([self.num_experiments, step_idxs])
                     
-        for step_idx, step in enumerate(range(invoke_every, steps+invoke_every, invoke_every)):
+        for step_idx, step in enumerate(range(self.invoke_every, self.steps+self.invoke_every, self.invoke_every)):
             for experiment in range(self.num_experiments):
                 # load sparse graph
-                graph_name = f'graph_{step:0{step_len}d}.npz'
-                graph_path = os.path.join(self.experiment_root,
-                                          f'Experiment_{experiment:0{self.str_exp_len}d}',
-                                          'sampled_graphs',
-                                          graph_name)
-                graph = load_npz(graph_path)
+                graph = self.load_graph(experiment, step)
                 # compute statistics
                 statistics['Edge Overlap (%)'][experiment, step_idx] = overlaps[experiment][step]
                 if roc_aucs is not None:
@@ -87,11 +90,8 @@ class Evaluation(object):
                 statistics['Time (s)'][experiment, step_idx] = timings[experiment][step]
                 for name, statistic_fn in self.statistic_fns.items():
                     statistics[name][experiment, step_idx] = statistic_fn(graph)
-
                     
         self.statistics = statistics
-        self.steps = steps
-        self.invoke_every = invoke_every
 
     def aggregate_statistics(self, num_bins, start=0, end=1):
         # binning
@@ -111,13 +111,27 @@ class Evaluation(object):
         self.statistics_mean = statistics_mean
         self.statistics_std = statistics_std
         self.mean_std = (statistics_mean, statistics_std)
-                
-    def export_statistics(self):
-        pass
-    
-    def plot_statistics(self):
-        pass
 
+    def get_specific_overlap_graph(self, target_overlap):
+        overlaps = self.statistics['Edge Overlap (%)']
+        args = np.argwhere(target_overlap < overlaps)
+        selected_args = {}
+        for (experiment, step_idx) in args:
+            if experiment not in selected_args or selected_args[experiment] > step_idx:
+                selected_args[experiment] = step_idx
+
+        selected_graphs = {}
+        selected_statistics = {}
+
+        for experiment, step_idx in selected_args.items():
+            step = (step_idx + 1) * self.invoke_every
+            selected_graphs[experiment] = self.load_graph(experiment, step)
+            selected_statistics[experiment] = {}
+            for name, statistic in self.statistics.items():
+                selected_statistics[experiment][name] = self.statistics[name][experiment, step_idx]
+    
+        return selected_graphs, selected_statistics
+        
 
 def tabular_from_statistics(EO_criterion, statistics):
     tabular_mean = {}
@@ -135,7 +149,6 @@ def tabular_from_statistics(EO_criterion, statistics):
             tabular_mean[model_name][statistic_name] = statistics_mean[statistic_name][arg]
             tabular_std[model_name][statistic_name] = statistics_std[statistic_name][arg]
     return (tabular_mean, tabular_std)
-
 
 
 def df_from_tabular(tabular, keys=None):
