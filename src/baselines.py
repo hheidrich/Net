@@ -128,8 +128,9 @@ class Forge_SymmetricLaplacian(Forge):
     
     def backtransform(self, M_LR, A):
         N = A.shape[0]
-        degrees_sqrt = np.sqrt(np.array(A.sum(axis=-1)))
-        A_LR = np.eye(N) - degrees_sqrt * M_LR * degrees_sqrt.T
+        degrees = np.array(A.sum(axis=-1)).flatten()
+        degrees_sqrt = np.sqrt(degrees)
+        A_LR = np.diag(degrees) - degrees_sqrt * M_LR * degrees_sqrt.T
         return A_LR
 
 
