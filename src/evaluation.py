@@ -5,6 +5,7 @@ import pickle
 import numpy as np
 from scipy.sparse import load_npz
 from matplotlib import pyplot as plt
+import seaborn as sns
 import pandas as pd
 import utils
 
@@ -213,3 +214,59 @@ def boxplot(statistics_binned, original_statistics, min_binsize=3, save_path=Non
         plt.savefig(fname=save_path)
     plt.show()   
     return
+                                           
+
+def make_comparison_df(datasets, models, statistic_fns, overlap, original_graphs):
+    """ Make a table/ heatmap that compares the relative error of two models at a specified edge overlap 
+    for a list of datasets and a list of statistics. Always computes error of first model minus
+    error of second model.
+    Parameters
+    ----------
+    datasets: List of strings (names of datasets)
+    models: Dictionary. Keys are model names, values are +1/-1 to indicate how to merge both relative errors
+    statistic_fns: Dictionary. Keys are statistic names, values are functions used to compute the statistics.
+    overlap: Float. Consider first graphs of each trial that achieves this overlap.
+    original_graphs: Dictionary. Keys are datasets, values are corresponding train graphs.
+
+    Returns
+    -------
+    comparison_dict. Dictionary. Rows are datasets, columns are graph statistics, cells are linear combination 
+                                 of relative errors with the weights from models.values().
+    """
+    # Create comparison dict and original statistics dict
+    relative_error_dict = dict.fromkeys(statistic_fns.keys(), 0)
+    comparison_dict = dict.fromkeys(datasets, relative_error_dict)
+    original_statistics = dict.fromkeys(datasets, None)
+    for model in models.keys():
+        for dataset in datasets:
+            # Check if original statistic is computed. If not, compute it
+            if original_statistics[dataset] is None:
+                original_statistics[dataset] = compute_original_statistics(original_graphs[dataset],
+                                                                           statistic_fns)
+            # Extract statistics for specified model, dataset, and edge overlap
+            eval_model_dataset = Evaluation(experiment_root=f'../logs/{dataset}/{model}/',
+                                            statistic_fns=statistic_fns)
+            eval_model_dataset.compute_statistics()
+            _, overlap_statistics = eval_model_dataset.get_specific_overlap_graph(target_overlap=overlap)
+            # Compute relative error for all statistics
+            for statistic in statistic_fns.keys():
+                rel_error = 0
+                for trial in overlap_statistics.keys():
+                    rel_error += np.abs(overlap_statistics[trial][statistic] - original_statistics[dataset][statistic])
+                rel_error /= len(overlap_statistics.keys()) * original_statistics[dataset][statistic]
+                comparison_dict[dataset][statistic] += models[model] * np.abs(rel_error)
+    df = pd.DataFrame(comparison_dict.values(), comparison_dict.keys())
+    
+    return df
+
+                                           
+def comparison_tabular_from_df(df, annot_size=20, xlabel_size=15, ylabel_size=15, xtick_size=10, ytick_size=10,
+                               x_rotation=-45, y_rotation=0):
+    ax = sns.heatmap(df, annot=True, annot_kws={"size": annot_size}, cmap='RdBu_r', center=0, linewidths=1)
+    ax.xaxis.set_ticks_position('top')
+    ax.xaxis.set_label_position('top')
+    plt.xticks(rotation=x_rotation, fontsize=xtick_size)
+    plt.yticks(rotation=y_rotation, fontsize=ytick_size)
+    ax.set_xlabel('Statistics', fontsize=xlabel_size)
+    ax.set_ylabel('Datasets', fontsize=ylabel_size)
+    return                                           
