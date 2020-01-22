@@ -4,6 +4,7 @@ import scipy.sparse as sp
 from scipy.sparse.csgraph import connected_components, minimum_spanning_tree
 from scipy.sparse.linalg import eigs
 from sklearn.metrics import roc_auc_score, average_precision_score
+from matplotlib import pyplot as plt
 import networkx as nx
 
 
@@ -12,11 +13,26 @@ def load_dict(filename):
             dct = pickle.load(handle)
         return dct
 
+
 def save_dict(dct, filename):
     with open(filename, 'wb') as handle:
         pickle.dump(dct,
                     handle,
                     protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def plot_graph(A, Xs):
+    Is, Js = A.nonzero()
+    nonzero_indices = np.array((Is, Js)).T
+    
+    f, axs = plt.subplots(figsize=(12,12))
+
+    for l in range(nonzero_indices.shape[0]):
+        style = 'ko-'
+        axs.plot(Xs[nonzero_indices[l], 0], Xs[nonzero_indices[l], 1], style)
+    plt.show()
+    return
+
 
 def largest_connected_component(A):
     G = nx.from_scipy_sparse_matrix(A)

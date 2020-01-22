@@ -120,10 +120,10 @@ class Evaluation(object):
         for (experiment, step_idx) in args:
             if experiment not in selected_args or selected_args[experiment] > step_idx:
                 selected_args[experiment] = step_idx
-
+    
         selected_graphs = {}
         selected_statistics = {}
-
+    
         for experiment, step_idx in selected_args.items():
             step = (step_idx + 1) * self.invoke_every
             selected_graphs[experiment] = self.load_graph(experiment, step)
@@ -132,6 +132,11 @@ class Evaluation(object):
                 selected_statistics[experiment][name] = self.statistics[name][experiment, step_idx]
     
         return selected_graphs, selected_statistics
+    
+    def get_tabular(self, experiment, step):
+        step_idx = (step // self.invoke_every) - 1
+        graph_stats = {name: stats[experiment, step_idx] for name, stats in self.statistics.items()}
+        return graph_stats
         
 
 def tabular_from_statistics(EO_criterion, statistics):
