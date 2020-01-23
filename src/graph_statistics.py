@@ -5,6 +5,44 @@ import networkx as nx
 import powerlaw
 
 
+
+def shortest_paths(A_in):
+    G = nx.from_scipy_sparse_matrix(A_in)
+    B = nx.all_pairs_shortest_path_length(G)
+    B_dict = dict(B)
+    SP = np.zeros(A_in.shape)
+    for start in B_dict.keys():
+        for target in B_dict[start].keys():
+            SP[start, target] = B_dict[start][target]
+    return SP
+
+
+def average_SP_in_original_graph(A_in, SP):
+    return SP[A_in.nonzero()].sum() / A_in.sum()
+
+
+def average_edgelength(A_in, Xs):
+    rows, cols = A_in.nonzero()
+    avg_edgelength = 0
+    num_edges = len(rows)
+    for l in range(num_edges):
+        avg_edgelength += np.linalg.norm(Xs[rows[l]] - Xs[cols[l]])
+    avg_edgelength = avg_edgelength / num_edges 
+    return avg_edgelength
+
+
+def betweenness_centrality(A_in, max_centrality=False):
+    N = A_in.shape[0]
+    G = nx.from_scipy_sparse_matrix(A_in)
+    centrality_vector = nx.betweenness_centrality(G)
+    centrality_vector = np.array(list(centrality_vector.values()))
+    if max_centrality:
+        graph_centrality = np.max(centrality_vector)
+    else:
+        graph_centrality = 2 * (np.max(centrality_vector)-centrality_vector).sum() /((N-1)**2 * (N-2))
+    return graph_centrality
+
+
 def max_degree(A_in):
     """Compute max degree."""
     degrees = A_in.sum(axis=-1)
