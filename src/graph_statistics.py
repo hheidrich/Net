@@ -1,10 +1,27 @@
 import numpy as np
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigs
+from scipy.special import binom
 import networkx as nx
 import powerlaw
 
-
+def community_densities(A_in, class_memberships):
+    classes = set(class_memberships)
+    num_classes = len(classes)
+    class_sizes = np.zeros(num_classes)
+    class_edges = np.zeros((num_classes, num_classes))
+    for c in class_memberships:
+        class_sizes[c] += 1
+    rows, cols = A_in.nonzero()
+    for l in range(len(rows)):
+        if rows[l]<=cols[l]:
+            class_edges[class_memberships[rows[l]], class_memberships[cols[l]]] += 1
+    intra_edges = np.diag(class_edges)
+    inter_edges = np.triu(class_edges + class_edges.T, k=1)
+    intra_density = np.mean(intra_edges / binom(class_sizes, 2))
+    inter_density = np.sum((1/class_sizes.reshape(-1, 1))*inter_edges*(1/class_sizes.reshape(1,-1)))
+    inter_density /= binom(num_classes, 2)
+    return intra_density, inter_density
 
 def shortest_paths(A_in):
     G = nx.from_scipy_sparse_matrix(A_in)
