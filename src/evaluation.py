@@ -14,7 +14,8 @@ class Evaluation(object):
     
     def __init__(self, experiment_root, statistic_fns):
         self.experiment_root = experiment_root
-        self.statistic_fns = statistic_fns    
+        self.statistic_fns = statistic_fns
+        self.compute_statistics()
     
     def _load_timings(self):
         return self._load('timing')
@@ -137,7 +138,15 @@ class Evaluation(object):
         step_idx = (step // self.invoke_every) - 1
         graph_stats = {name: stats[experiment, step_idx] for name, stats in self.statistics.items()}
         return graph_stats
-        
+    
+    def get_seleted_average(self, experiments, steps):
+        means = {}
+        stds = {}
+        for name, statistic in self.statistics.items():
+            means[name] = statistic[experiments, steps].mean()
+            stds[name] = statistic[experiments, steps].std()
+        return means, stds
+
 
 def tabular_from_statistics(EO_criterion, statistics):
     tabular_mean = {}
@@ -221,7 +230,7 @@ def boxplot(statistics_binned, original_statistics, min_binsize=3, save_path=Non
     return
                                            
 
-def make_comparison_df(datasets, models, statistic_fns, overlap, original_graphs):
+def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs):
     """ Make a table/ heatmap that compares the relative error of two models at a specified edge overlap 
     for a list of datasets and a list of statistics. Always computes error of first model minus
     error of second model.
@@ -251,7 +260,6 @@ def make_comparison_df(datasets, models, statistic_fns, overlap, original_graphs
             # Extract statistics for specified model, dataset, and edge overlap
             eval_model_dataset = Evaluation(experiment_root=f'../logs/{dataset}/{model}/',
                                             statistic_fns=statistic_fns)
-            eval_model_dataset.compute_statistics()
             _, overlap_statistics = eval_model_dataset.get_specific_overlap_graph(target_overlap=overlap)
             # Compute relative error for all statistics
             for statistic in statistic_fns.keys():
@@ -265,7 +273,7 @@ def make_comparison_df(datasets, models, statistic_fns, overlap, original_graphs
     return df
 
                                            
-def comparison_tabular_from_df(df, annot_size=20, xlabel_size=15, ylabel_size=15, xtick_size=10, ytick_size=10,
+def heat_map_from_df(df, annot_size=20, xlabel_size=15, ylabel_size=15, xtick_size=10, ytick_size=10,
                                x_rotation=-45, y_rotation=0):
     ax = sns.heatmap(df, annot=True, annot_kws={"size": annot_size}, cmap='RdBu_r', center=0, linewidths=1)
     ax.xaxis.set_ticks_position('top')

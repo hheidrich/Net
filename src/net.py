@@ -197,6 +197,7 @@ def start_experiments(num_experiments,
                       optimizer_args,
                       invoke_every,
                       steps,
+                      loss_fn=None,
                       val_edges=(None, None)):
     """Start multiple experiments."""
     # create root folder
@@ -220,7 +221,8 @@ def start_experiments(num_experiments,
                                                  EO_limit=1.,
                                                  val_edges=val_edges),
                                   WeightWatcher(logdir=path_weights,
-                                                invoke_every=invoke_every)])
+                                                invoke_every=invoke_every)],
+                       loss_fn=loss_fn)
         
         # train model
         print(f'\nExperiment_{experiment:0{len(str(num_experiments))}d}')
