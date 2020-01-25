@@ -282,4 +282,21 @@ def heat_map_from_df(df, annot_size=20, xlabel_size=15, ylabel_size=15, xtick_si
     plt.yticks(rotation=y_rotation, fontsize=ytick_size)
     ax.set_xlabel('Statistics', fontsize=xlabel_size)
     ax.set_ylabel('Datasets', fontsize=ylabel_size)
-    return                                           
+    return         
+                     
+                                           
+def df_from_dataset(path_to_dataset, statistic_fns, target_overlap, original_graph, max_trials=None):
+    name_of_dataset = list(filter(None, path_to_dataset.split('/')))[-1]
+    names_of_models = [x for x in os.listdir(path_to_dataset) if x[0] != '.']
+    evals = {}
+    means = {name_of_dataset: compute_original_statistics(original_graph, statistic_fns)}
+    for name_of_model in names_of_models:
+        evals[name_of_model] = Evaluation(os.path.join(path_to_dataset, name_of_model), statistic_fns)
+        statistics = evals[name_of_model].get_specific_overlap_graph(target_overlap)[1]
+        if max_trials is not None:
+            statistics = {key:val for (key, val) in statistics.items() if key in range(max_trials)}.values()
+        else:
+            statistics = statistics.values()
+        means[name_of_model] = {name: np.mean([elem[name] for elem in statistics]) for name in list(statistics)[0]}
+    df = pd.DataFrame(*reversed(list(zip(*means.items()))))
+    return df, evals                                           
