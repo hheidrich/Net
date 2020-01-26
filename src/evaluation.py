@@ -225,12 +225,12 @@ def boxplot(statistics_binned, original_statistics, min_binsize=3, save_path=Non
                 axs[row, col].axis('off')
             axs[row, col].set_xlim(0, 1)
     if save_path:
-        plt.savefig(fname=save_path)
+        plt.savefig(fname=save_path, bbox_inches='tight')
     plt.show()   
     return
                                            
 
-def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, show_keys=None, translation_dict=None, save_path=None):
+def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, grid_size=None, show_keys=None, translation_dict=None, save_path=None):
     if show_keys is None:
         keys = list(models_statistics_binned[list(models_statistics_binned.keys())[0]][0].keys()) 
     else:
@@ -241,7 +241,10 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
             translation[key] = translation_dict[key]
         else:
             translation[key] = key
-    n_cols, n_rows = utils.get_plot_grid_size(len(keys))
+    if grid_size:
+        n_rows, n_cols = grid_size
+    else:                                           
+        n_cols, n_rows = utils.get_plot_grid_size(len(keys))
     plt.rcParams.update({'font.size': 18})
     f, axs = plt.subplots(n_rows, n_cols, sharex=True, figsize=(22, 12))
     axs = np.array(axs).reshape(n_rows, n_cols)
@@ -278,11 +281,12 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
                 else:
                     axs[row, col].axis('off')
                 axs[row, col].set_xlim(0, 1)
-    if save_path:
-        plt.savefig(fname=save_path)
+    
     handles, labels = axs[0,0].get_legend_handles_labels()
     f.legend(handles[1:], labels[1:], loc='upper center', ncol=3, frameon=False)
-    plt.show()   
+    if save_path:
+        plt.savefig(fname=save_path, bbox_inches='tight')    
+    plt.show()                                              
     return                                           
 
                                            
