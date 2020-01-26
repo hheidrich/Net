@@ -230,6 +230,62 @@ def boxplot(statistics_binned, original_statistics, min_binsize=3, save_path=Non
     return
                                            
 
+def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, show_keys=None, translation_dict=None, save_path=None):
+    if show_keys is None:
+        keys = list(models_statistics_binned[list(models_statistics_binned.keys())[0]][0].keys()) 
+    else:
+        keys = show_keys
+    translation = {}
+    for key in keys:
+        if translation_dict is not None and key in translation_dict.keys():
+            translation[key] = translation_dict[key]
+        else:
+            translation[key] = key
+    n_cols, n_rows = utils.get_plot_grid_size(len(keys))
+    plt.rcParams.update({'font.size': 18})
+    f, axs = plt.subplots(n_rows, n_cols, sharex=True, figsize=(22, 12))
+    axs = np.array(axs).reshape(n_rows, n_cols)
+    plt.tight_layout(pad=3)
+    for model in models_statistics_binned:
+        statistics_binned = models_statistics_binned[model][0]
+        color = models_statistics_binned[model][1]
+        # Locate bins with sufficiently many entries and remove others 
+        bin_keys = [len(_bin)>=min_binsize for _bin in statistics_binned['Edge Overlap (%)']]
+        means, half_stds = {}, {}
+        for key in statistics_binned.keys():
+            means[key] = [arr.mean() for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
+            half_stds[key] = [arr.std()/2 for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
+        # Plot at mean edge overlap for every bin
+        positions = means['Edge Overlap (%)']
+        # Make boxplot
+        for row in range(n_rows):
+            for col in range(n_cols):
+                i = row * n_cols + col
+                if i < len(keys):
+                    key = keys[row * n_cols + col]
+                    axs[row, col].errorbar(x=positions, y=means[key], yerr=half_stds[key], fmt=f's{color}',
+                                           capsize=5, label=model)
+                    if key in original_statistics.keys():
+                        axs[row, col].hlines(y=original_statistics[key],
+                                             xmin=0,
+                                             xmax=1,
+                                             colors='green',
+                                             linestyles='dashed',
+                                             label='Input graph')        
+                    axs[row, col].set_xlabel('Edge overlap (%)', labelpad=5)               
+                    axs[row, col].set_ylabel(translation[key], labelpad=2)
+                    axs[row, col].set_xticklabels([f'{EO:.2f}'[1:] for EO in positions])
+                else:
+                    axs[row, col].axis('off')
+                axs[row, col].set_xlim(0, 1)
+    if save_path:
+        plt.savefig(fname=save_path)
+    handles, labels = axs[0,0].get_legend_handles_labels()
+    f.legend(handles[1:], labels[1:], loc='upper center', ncol=3, frameon=False)
+    plt.show()   
+    return                                           
+
+                                           
 def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs):
     """ Make a table/ heatmap that compares the relative error of two models at a specified edge overlap 
     for a list of datasets and a list of statistics. Always computes error of first model minus
