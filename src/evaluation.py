@@ -330,14 +330,17 @@ def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs)
 
                                            
 def heat_map_from_df(df, annot_size=20, xlabel_size=15, ylabel_size=15, xtick_size=10, ytick_size=10,
-                               x_rotation=-45, y_rotation=0):
+                               x_rotation=-45, y_rotation=0, save_path=None):
+    plt.tight_layout()                                               
     ax = sns.heatmap(df, annot=True, annot_kws={"size": annot_size}, cmap='RdBu_r', center=0, linewidths=1)
     ax.xaxis.set_ticks_position('top')
     ax.xaxis.set_label_position('top')
     plt.xticks(rotation=x_rotation, fontsize=xtick_size)
     plt.yticks(rotation=y_rotation, fontsize=ytick_size)
     ax.set_xlabel('Statistics', fontsize=xlabel_size)
-    ax.set_ylabel('Datasets', fontsize=ylabel_size)
+    ax.set_ylabel('Datasets', fontsize=ylabel_size)                                           
+    if save_path:                                       
+        plt.savefig(fname=save_path, bbox_inches='tight')                                           
     return         
                      
                                            
