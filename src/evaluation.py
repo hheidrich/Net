@@ -34,7 +34,7 @@ class Evaluation(object):
         except: return None
 
     def _load(self, name):
-        
+     
         def get_filename(idx):
             filename = os.path.join(self.experiment_root,
                                     f'Experiment_{idx:0{self.str_exp_len}d}',
@@ -189,14 +189,15 @@ def compute_original_statistics(original_graph, statistic_fns):
     return original_statistics
 
 
-def boxplot(statistics_binned, original_statistics, min_binsize=3, save_path=None):
+def boxplot(statistics_binned, original_statistics, min_binsize=3, max_patience_for_VAL=5, save_path=None):
     # Locate bins with sufficiently many entries and remove others 
     bin_keys = [len(_bin)>=min_binsize for _bin in statistics_binned['Edge Overlap (%)']]
     statistics = {}
     for key in statistics_binned.keys():
         statistics[key] = [arr for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
-    # Plot at mean edge overlap for every bin
+    # Plot at mean edge overlap for every bin and compute VAL-criteria
     positions = [arr.mean() for arr in statistics['Edge Overlap (%)']]
+                                           
     # Make boxplot
     keys = list(statistics.keys())
     n_cols, n_rows = utils.get_plot_grid_size(len(keys))
@@ -217,7 +218,8 @@ def boxplot(statistics_binned, original_statistics, min_binsize=3, save_path=Non
                                          xmin=0,
                                          xmax=1,
                                          colors='green',
-                                         linestyles='dashed')        
+                                         linestyles='dashed')       
+#                     axs[row, col].axvline(x=steps[VAL_criterion], color='red', linestyle='dashdot')                                                                  
                 axs[row, col].set_xlabel('Edge Overlap (%)', labelpad=5)               
                 axs[row, col].set_ylabel(key, labelpad=2)
                 axs[row, col].set_xticklabels([f'{EO:.2f}'[1:] for EO in positions])
@@ -260,6 +262,8 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
             half_stds[key] = [arr.std()/2 for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
         # Plot at mean edge overlap for every bin
         positions = means['Edge Overlap (%)']
+#         sum_val_performances = [np.sum(performances) for performances in self.dict_of_lists_of_statistic['val_performance']]
+#         VAL_criterion = argmax_with_patience(sum_val_performances, max_patience=max_patience_for_VAL)                                               
         # Make boxplot
         for row in range(n_rows):
             for col in range(n_cols):
