@@ -240,7 +240,7 @@ def boxplot(statistics, statistics_binned, original_statistics, min_binsize=3, m
     return
                                            
 
-def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, grid_size=None, show_keys=None, translation_dict=None, max_patience=5, save_path=None):
+def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, grid_size=None, figsize=(22, 12), show_keys=None, translation_dict=None, max_patience=5, save_path=None):
     # Set up figure                                           
     if show_keys is None:
         keys = list(models_statistics_binned[list(models_statistics_binned.keys())[0]][0].keys()) 
@@ -256,8 +256,8 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
         n_rows, n_cols = grid_size
     else:                                           
         n_cols, n_rows = utils.get_plot_grid_size(len(keys))
-    plt.rcParams.update({'font.size': 18})
-    f, axs = plt.subplots(n_rows, n_cols, sharex=True, figsize=(22, 12))
+    plt.rcParams.update({'font.size': 22})
+    f, axs = plt.subplots(n_rows, n_cols, figsize=figsize)
     axs = np.array(axs).reshape(n_rows, n_cols)
     plt.tight_layout(pad=3)
     for model in models_statistics_binned:
@@ -287,17 +287,19 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
                                              xmax=1,
                                              colors='green',
                                              linestyles='dashed',
-                                             label='Input graph')  
+                                             label='Target (input graph)')  
                     if val_criterion is not None:                                           
                         axs[row, col].axvline(x=val_criterion(max_patience), color=color, linestyle='dashdot',
-                                              label=f'Val-criterion ({model})')                     
+                                              label=f'VAL stopping-criterion ({model})')                     
                     axs[row, col].set_xlabel('Edge overlap (%)', labelpad=5)               
                     axs[row, col].set_ylabel(translation[key], labelpad=2)
                     axs[row, col].set_xticklabels([f'{EO:.2f}'[1:] for EO in positions])
+#                     for tick in axs[row, col].get_xticklabels():
+#                         tick.set_visible(True)                                           
                 else:
                     axs[row, col].axis('off')
                 axs[row, col].set_xlim(0, 1)
-    
+#     plt.setp(axs, xticks=positions, xticklabels=[f'{EO:.2f}'[1:] for EO in positions])
     handles, labels = axs[0,0].get_legend_handles_labels()
     if val_criterion is not None:                                           
         label_order = [3, 5, 1, 4, 0]      
