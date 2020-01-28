@@ -146,6 +146,13 @@ class Evaluation(object):
             means[name] = statistic[experiments, steps].mean()
             stds[name] = statistic[experiments, steps].std()
         return means, stds
+                                           
+    def get_val_criterion(self, max_patience):
+        sum_val_performances = self.statistics['ROC-AUC Score'] + self.statistics['Average Precision']
+        val_steps = [utils.argmax_with_patience(x=arr, max_patience=max_patience) for arr in sum_val_performances]
+        val_overlaps = [overlaps[step] for overlaps, step in zip(self.statistics['Edge Overlap (%)'], val_steps)]
+        val_criterion = np.array(val_overlaps).mean()                                                                           
+        return val_criterion
 
 
 def tabular_from_statistics(EO_criterion, statistics):
@@ -189,7 +196,7 @@ def compute_original_statistics(original_graph, statistic_fns):
     return original_statistics
 
 
-def boxplot(statistics_binned, original_statistics, min_binsize=3, max_patience_for_VAL=5, save_path=None):
+def boxplot(statistics, statistics_binned, original_statistics, min_binsize=3, max_patience_for_VAL=5, save_path=None):
     # Locate bins with sufficiently many entries and remove others 
     bin_keys = [len(_bin)>=min_binsize for _bin in statistics_binned['Edge Overlap (%)']]
     statistics = {}
@@ -197,7 +204,8 @@ def boxplot(statistics_binned, original_statistics, min_binsize=3, max_patience_
         statistics[key] = [arr for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
     # Plot at mean edge overlap for every bin and compute VAL-criteria
     positions = [arr.mean() for arr in statistics['Edge Overlap (%)']]
-                                           
+    sum_val_performances = [np.sum(performances) for performances in self.dict_of_lists_of_statistic['val_performance']]
+    VAL_criterion = argmax_with_patience(sum_val_performances, max_patience=max_patience_for_VAL)                              
     # Make boxplot
     keys = list(statistics.keys())
     n_cols, n_rows = utils.get_plot_grid_size(len(keys))
@@ -219,7 +227,7 @@ def boxplot(statistics_binned, original_statistics, min_binsize=3, max_patience_
                                          xmax=1,
                                          colors='green',
                                          linestyles='dashed')       
-#                     axs[row, col].axvline(x=steps[VAL_criterion], color='red', linestyle='dashdot')                                                                  
+#                     axs[row, col].axvline(x=steps[VAL_criterion], color='red', linestyle='dashdot')                           
                 axs[row, col].set_xlabel('Edge Overlap (%)', labelpad=5)               
                 axs[row, col].set_ylabel(key, labelpad=2)
                 axs[row, col].set_xticklabels([f'{EO:.2f}'[1:] for EO in positions])
@@ -232,7 +240,8 @@ def boxplot(statistics_binned, original_statistics, min_binsize=3, max_patience_
     return
                                            
 
-def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, grid_size=None, show_keys=None, translation_dict=None, save_path=None):
+def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, grid_size=None, show_keys=None, translation_dict=None, max_patience=5, save_path=None):
+    # Set up figure                                           
     if show_keys is None:
         keys = list(models_statistics_binned[list(models_statistics_binned.keys())[0]][0].keys()) 
     else:
@@ -254,6 +263,8 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
     for model in models_statistics_binned:
         statistics_binned = models_statistics_binned[model][0]
         color = models_statistics_binned[model][1]
+        if len(models_statistics_binned[model])>2:
+            val_criterion = models_statistics_binned[model][2]                                            
         # Locate bins with sufficiently many entries and remove others 
         bin_keys = [len(_bin)>=min_binsize for _bin in statistics_binned['Edge Overlap (%)']]
         means, half_stds = {}, {}
@@ -262,8 +273,6 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
             half_stds[key] = [arr.std()/2 for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
         # Plot at mean edge overlap for every bin
         positions = means['Edge Overlap (%)']
-#         sum_val_performances = [np.sum(performances) for performances in self.dict_of_lists_of_statistic['val_performance']]
-#         VAL_criterion = argmax_with_patience(sum_val_performances, max_patience=max_patience_for_VAL)                                               
         # Make boxplot
         for row in range(n_rows):
             for col in range(n_cols):
@@ -278,7 +287,10 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
                                              xmax=1,
                                              colors='green',
                                              linestyles='dashed',
-                                             label='Input graph')        
+                                             label='Input graph')  
+                    if val_criterion is not None:                                           
+                        axs[row, col].axvline(x=val_criterion(max_patience), color=color, linestyle='dashdot',
+                                              label=f'Val-criterion ({model})')                     
                     axs[row, col].set_xlabel('Edge overlap (%)', labelpad=5)               
                     axs[row, col].set_ylabel(translation[key], labelpad=2)
                     axs[row, col].set_xticklabels([f'{EO:.2f}'[1:] for EO in positions])
@@ -287,7 +299,15 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
                 axs[row, col].set_xlim(0, 1)
     
     handles, labels = axs[0,0].get_legend_handles_labels()
-    f.legend(handles[1:], labels[1:], loc='upper center', ncol=3, frameon=False)
+    if val_criterion is not None:                                           
+        label_order = [3, 5, 1, 4, 0]      
+        ncol=5                                           
+    else:
+        label_order = [1, 2, 3]                                           
+        ncol=3                                           
+    handles_sorted = [handles[i] for i in label_order]
+    labels_sorted = [labels[i] for i in label_order]                                           
+    f.legend(handles_sorted, labels_sorted, loc='upper center', ncol=ncol, frameon=False)
     if save_path:
         plt.savefig(fname=save_path, bbox_inches='tight')    
     plt.show()                                              
