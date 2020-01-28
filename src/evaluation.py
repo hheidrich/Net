@@ -267,10 +267,10 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
             val_criterion = models_statistics_binned[model][2]                                            
         # Locate bins with sufficiently many entries and remove others 
         bin_keys = [len(_bin)>=min_binsize for _bin in statistics_binned['Edge Overlap (%)']]
-        means, half_stds = {}, {}
+        means, stds = {}, {}
         for key in statistics_binned.keys():
             means[key] = [arr.mean() for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
-            half_stds[key] = [arr.std()/2 for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
+            stds[key] = [arr.std() for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
         # Plot at mean edge overlap for every bin
         positions = means['Edge Overlap (%)']
         # Make boxplot
@@ -279,7 +279,7 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
                 i = row * n_cols + col
                 if i < len(keys):
                     key = keys[row * n_cols + col]
-                    axs[row, col].errorbar(x=positions, y=means[key], yerr=half_stds[key], fmt=f's{color}',
+                    axs[row, col].errorbar(x=positions, y=means[key], yerr=stds[key], fmt=f's{color}',
                                            capsize=5, label=model)
                     if key in original_statistics.keys():
                         axs[row, col].hlines(y=original_statistics[key],
@@ -366,7 +366,7 @@ def heat_map_from_df(df, annot_size=20, xlabel_size=15, ylabel_size=15, xtick_si
     plt.xticks(rotation=x_rotation, fontsize=xtick_size)
     plt.yticks(rotation=y_rotation, fontsize=ytick_size)
     ax.set_xlabel('Statistics', fontsize=xlabel_size)
-    ax.set_ylabel('Datasets', fontsize=ylabel_size)                                           
+    ax.set_ylabel('Data sets', fontsize=ylabel_size)                                           
     if save_path:                                       
         plt.savefig(fname=save_path, bbox_inches='tight')                                           
     return         
