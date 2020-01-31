@@ -260,7 +260,7 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
     f, axs = plt.subplots(n_rows, n_cols, figsize=figsize)
     axs = np.array(axs).reshape(n_rows, n_cols)
     plt.tight_layout(pad=3)
-    for model in models_statistics_binned:
+    for counter, model in enumerate(models_statistics_binned):
         statistics_binned = models_statistics_binned[model][0]
         color = models_statistics_binned[model][1]
         if len(models_statistics_binned[model])>2:
@@ -293,13 +293,14 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
                                               label=f'VAL stopping-criterion ({model})')                     
                     axs[row, col].set_xlabel('Edge overlap (%)', labelpad=5)               
                     axs[row, col].set_ylabel(translation[key], labelpad=2)
-                    axs[row, col].set_xticklabels([f'{EO:.2f}'[1:] for EO in positions])
+                    if counter==0:                                           
+                        axs[row, col].set_xticks([EO for EO in positions[::2]])                                           
+                        axs[row, col].set_xticklabels([f'{EO:.2f}'[1:] for EO in positions[::2]])
 #                     for tick in axs[row, col].get_xticklabels():
 #                         tick.set_visible(True)                                           
                 else:
                     axs[row, col].axis('off')
-                axs[row, col].set_xlim(0, 1)
-#     plt.setp(axs, xticks=positions, xticklabels=[f'{EO:.2f}'[1:] for EO in positions])
+                axs[row, col].set_xlim(0, max(positions)+0.05)
     handles, labels = axs[0,0].get_legend_handles_labels()
     if val_criterion is not None:                                           
         label_order = [3, 5, 1, 4, 0]      
