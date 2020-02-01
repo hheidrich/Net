@@ -197,12 +197,13 @@ def start_experiments(num_experiments,
                       optimizer_args,
                       invoke_every,
                       steps,
+                      Model,
                       loss_fn=None,
                       val_edges=(None, None)):
     """Start multiple experiments."""
     # create root folder
     Path(experiment_root).mkdir(parents=True, exist_ok=True)
-    netmodels = []
+    models = []
     for experiment in range(num_experiments):
         # create experiment folder
         path = os.path.join(experiment_root, f'Experiment_{experiment:0{len(str(num_experiments-1))}d}')
@@ -214,20 +215,20 @@ def start_experiments(num_experiments,
         Path(path_weights).mkdir(parents=True, exist_ok=True)
         
         # initialize model
-        netmodel = Net(A=train_graph,
-                       H=H,
-                       callbacks=[OverlapTracker(logdir=path_graphs,
-                                                 invoke_every=invoke_every,
-                                                 EO_limit=1.,
-                                                 val_edges=val_edges),
-                                  WeightWatcher(logdir=path_weights,
-                                                invoke_every=invoke_every)],
-                       loss_fn=loss_fn)
+        model = Model(A=train_graph,
+                      H=H,
+                      callbacks=[OverlapTracker(logdir=path_graphs,
+                                                invoke_every=invoke_every,
+                                                EO_limit=1.,
+                                                val_edges=val_edges),
+                                 WeightWatcher(logdir=path_weights,
+                                               invoke_every=invoke_every)],
+                      loss_fn=loss_fn)
         
         # train model
         print(f'\nExperiment_{experiment:0{len(str(num_experiments))}d}')
-        netmodel.train(steps=steps,
+        model.train(steps=steps,
                optimizer_fn=optimizer,
                optimizer_args=optimizer_args)
-        netmodels.append(netmodel)
-    return netmodels
+        models.append(model)
+    return models

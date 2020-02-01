@@ -11,6 +11,8 @@ import torch
 import time
 import pickle
 import utils
+from net import Net
+
 
 class Forge(abc.ABC):
     def __init__(self, A, rank):
@@ -132,6 +134,20 @@ class Forge_SymmetricLaplacian(Forge):
         degrees_sqrt = np.sqrt(degrees)
         A_LR = np.diag(degrees) - degrees_sqrt * M_LR * degrees_sqrt.T
         return A_LR
+
+
+class Transition(Net):
+    def __call__(self):
+        return self.get_W().detach().numpy()
+    
+    def get_W(self):
+        W = torch.mm(torch.exp(self.W_down), torch.exp(self.W_up))
+        W /= W.sum(dim=-1, keepdims=True)
+        return W
+    
+    def built_in_loss_fn(self, W, A, num_edges):
+        loss = -(.5 * torch.sum(A * torch.log(W)) / num_edges)
+        return loss
 
 
 def configuration_model(A, B=None, EO=None):
