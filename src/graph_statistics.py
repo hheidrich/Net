@@ -44,7 +44,10 @@ def average_edgelength(A_in, Xs):
     num_edges = len(rows)
     for l in range(num_edges):
         avg_edgelength += np.linalg.norm(Xs[rows[l]] - Xs[cols[l]])
-    avg_edgelength = avg_edgelength / num_edges 
+    if num_edges==0:
+        avg_edgelength = '*'
+    else:
+        avg_edgelength = avg_edgelength / num_edges 
     return avg_edgelength
 
 

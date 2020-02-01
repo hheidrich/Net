@@ -34,7 +34,7 @@ class Evaluation(object):
         except: return None
 
     def _load(self, name):
-        
+     
         def get_filename(idx):
             filename = os.path.join(self.experiment_root,
                                     f'Experiment_{idx:0{self.str_exp_len}d}',
@@ -146,6 +146,13 @@ class Evaluation(object):
             means[name] = statistic[experiments, steps].mean()
             stds[name] = statistic[experiments, steps].std()
         return means, stds
+                                           
+    def get_val_criterion(self, max_patience):
+        sum_val_performances = self.statistics['ROC-AUC Score'] + self.statistics['Average Precision']
+        val_steps = [utils.argmax_with_patience(x=arr, max_patience=max_patience) for arr in sum_val_performances]
+        val_overlaps = [overlaps[step] for overlaps, step in zip(self.statistics['Edge Overlap (%)'], val_steps)]
+        val_criterion = np.array(val_overlaps).mean()                                                                           
+        return val_criterion
 
 
 def tabular_from_statistics(EO_criterion, statistics):
@@ -189,14 +196,16 @@ def compute_original_statistics(original_graph, statistic_fns):
     return original_statistics
 
 
-def boxplot(statistics_binned, original_statistics, min_binsize=3, save_path=None):
+def boxplot(statistics, statistics_binned, original_statistics, min_binsize=3, max_patience_for_VAL=5, save_path=None):
     # Locate bins with sufficiently many entries and remove others 
     bin_keys = [len(_bin)>=min_binsize for _bin in statistics_binned['Edge Overlap (%)']]
     statistics = {}
     for key in statistics_binned.keys():
         statistics[key] = [arr for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
-    # Plot at mean edge overlap for every bin
+    # Plot at mean edge overlap for every bin and compute VAL-criteria
     positions = [arr.mean() for arr in statistics['Edge Overlap (%)']]
+    sum_val_performances = [np.sum(performances) for performances in self.dict_of_lists_of_statistic['val_performance']]
+    VAL_criterion = argmax_with_patience(sum_val_performances, max_patience=max_patience_for_VAL)                              
     # Make boxplot
     keys = list(statistics.keys())
     n_cols, n_rows = utils.get_plot_grid_size(len(keys))
@@ -217,7 +226,8 @@ def boxplot(statistics_binned, original_statistics, min_binsize=3, save_path=Non
                                          xmin=0,
                                          xmax=1,
                                          colors='green',
-                                         linestyles='dashed')        
+                                         linestyles='dashed')       
+#                     axs[row, col].axvline(x=steps[VAL_criterion], color='red', linestyle='dashdot')                           
                 axs[row, col].set_xlabel('Edge Overlap (%)', labelpad=5)               
                 axs[row, col].set_ylabel(key, labelpad=2)
                 axs[row, col].set_xticklabels([f'{EO:.2f}'[1:] for EO in positions])
@@ -225,11 +235,88 @@ def boxplot(statistics_binned, original_statistics, min_binsize=3, save_path=Non
                 axs[row, col].axis('off')
             axs[row, col].set_xlim(0, 1)
     if save_path:
-        plt.savefig(fname=save_path)
+        plt.savefig(fname=save_path, bbox_inches='tight')
     plt.show()   
     return
                                            
 
+def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, grid_size=None, figsize=(22, 12), show_keys=None, translation_dict=None, max_patience=5, save_path=None):
+    # Set up figure                                           
+    if show_keys is None:
+        keys = list(models_statistics_binned[list(models_statistics_binned.keys())[0]][0].keys()) 
+    else:
+        keys = show_keys
+    translation = {}
+    for key in keys:
+        if translation_dict is not None and key in translation_dict.keys():
+            translation[key] = translation_dict[key]
+        else:
+            translation[key] = key
+    if grid_size:
+        n_rows, n_cols = grid_size
+    else:                                           
+        n_cols, n_rows = utils.get_plot_grid_size(len(keys))
+    plt.rcParams.update({'font.size': 22})
+    f, axs = plt.subplots(n_rows, n_cols, figsize=figsize)
+    axs = np.array(axs).reshape(n_rows, n_cols)
+    plt.tight_layout(pad=3)
+    for counter, model in enumerate(models_statistics_binned):
+        statistics_binned = models_statistics_binned[model][0]
+        color = models_statistics_binned[model][1]
+        if len(models_statistics_binned[model])>2:
+            val_criterion = models_statistics_binned[model][2]                                            
+        # Locate bins with sufficiently many entries and remove others 
+        bin_keys = [len(_bin)>=min_binsize for _bin in statistics_binned['Edge Overlap (%)']]
+        means, stds = {}, {}
+        for key in statistics_binned.keys():
+            means[key] = [arr.mean() for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
+            stds[key] = [arr.std() for arr, bin_key in zip(statistics_binned[key], bin_keys) if bin_key]
+        # Plot at mean edge overlap for every bin
+        positions = means['Edge Overlap (%)']
+        # Make boxplot
+        for row in range(n_rows):
+            for col in range(n_cols):
+                i = row * n_cols + col
+                if i < len(keys):
+                    key = keys[row * n_cols + col]
+                    axs[row, col].errorbar(x=positions, y=means[key], yerr=stds[key], fmt=f's{color}',
+                                           capsize=5, label=model)
+                    if key in original_statistics.keys():
+                        axs[row, col].hlines(y=original_statistics[key],
+                                             xmin=0,
+                                             xmax=1,
+                                             colors='green',
+                                             linestyles='dashed',
+                                             label='Target (input graph)')  
+                    if val_criterion is not None:                                           
+                        axs[row, col].axvline(x=val_criterion(max_patience), color=color, linestyle='dashdot',
+                                              label=f'VAL stopping-criterion ({model})')                     
+                    axs[row, col].set_xlabel('Edge overlap (%)', labelpad=5)               
+                    axs[row, col].set_ylabel(translation[key], labelpad=2)
+                    if counter==0:                                           
+                        axs[row, col].set_xticks([EO for EO in positions[::2]])                                           
+                        axs[row, col].set_xticklabels([f'{EO:.2f}'[1:] for EO in positions[::2]])
+#                     for tick in axs[row, col].get_xticklabels():
+#                         tick.set_visible(True)                                           
+                else:
+                    axs[row, col].axis('off')
+                axs[row, col].set_xlim(0, max(positions)+0.05)
+    handles, labels = axs[0,0].get_legend_handles_labels()
+    if val_criterion is not None:                                           
+        label_order = [3, 5, 1, 4, 0]      
+        ncol=5                                           
+    else:
+        label_order = [1, 2, 3]                                           
+        ncol=3                                           
+    handles_sorted = [handles[i] for i in label_order]
+    labels_sorted = [labels[i] for i in label_order]                                           
+    f.legend(handles_sorted, labels_sorted, loc='upper center', ncol=ncol, frameon=False)
+    if save_path:
+        plt.savefig(fname=save_path, bbox_inches='tight')    
+    plt.show()                                              
+    return                                           
+
+                                           
 def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs):
     """ Make a table/ heatmap that compares the relative error of two models at a specified edge overlap 
     for a list of datasets and a list of statistics. Always computes error of first model minus
@@ -274,12 +361,32 @@ def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs)
 
                                            
 def heat_map_from_df(df, annot_size=20, xlabel_size=15, ylabel_size=15, xtick_size=10, ytick_size=10,
-                               x_rotation=-45, y_rotation=0):
+                               x_rotation=-45, y_rotation=0, save_path=None):
+    plt.tight_layout()                                               
     ax = sns.heatmap(df, annot=True, annot_kws={"size": annot_size}, cmap='RdBu_r', center=0, linewidths=1)
     ax.xaxis.set_ticks_position('top')
     ax.xaxis.set_label_position('top')
     plt.xticks(rotation=x_rotation, fontsize=xtick_size)
     plt.yticks(rotation=y_rotation, fontsize=ytick_size)
     ax.set_xlabel('Statistics', fontsize=xlabel_size)
-    ax.set_ylabel('Datasets', fontsize=ylabel_size)
-    return                                           
+    ax.set_ylabel('Data sets', fontsize=ylabel_size)                                           
+    if save_path:                                       
+        plt.savefig(fname=save_path, bbox_inches='tight')                                           
+    return         
+                     
+                                           
+def df_from_dataset(path_to_dataset, statistic_fns, target_overlap, original_graph, max_trials=None):
+    name_of_dataset = list(filter(None, path_to_dataset.split('/')))[-1]
+    names_of_models = [x for x in os.listdir(path_to_dataset) if x[0] != '.']
+    evals = {}
+    means = {name_of_dataset: compute_original_statistics(original_graph, statistic_fns)}
+    for name_of_model in names_of_models:
+        evals[name_of_model] = Evaluation(os.path.join(path_to_dataset, name_of_model), statistic_fns)
+        statistics = evals[name_of_model].get_specific_overlap_graph(target_overlap)[1]
+        if max_trials is not None:
+            statistics = {key:val for (key, val) in statistics.items() if key in range(max_trials)}.values()
+        else:
+            statistics = statistics.values()
+        means[name_of_model] = {name: np.mean([elem[name] for elem in statistics]) for name in list(statistics)[0]}
+    df = pd.DataFrame(*reversed(list(zip(*means.items()))))
+    return df, evals                                           

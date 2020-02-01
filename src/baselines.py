@@ -16,12 +16,14 @@ from net import Net
 
 class Forge(abc.ABC):
     def __init__(self, A, rank):
+        start = time.time()
         self.A = A
         M = self.transform(A)
         M_LR = self._low_rank_approx(M, rank)
         A_LR = self.backtransform(M_LR, A)
         self.scores_matrix = self._normalize(A_LR)
         self.num_edges = A.sum() / 2
+        self.approx_time = time.time() - start
         
     def __call__(self, sample_size, logdir=None, val_edges=(None, None)):
         sampled_graphs = []
@@ -29,7 +31,7 @@ class Forge(abc.ABC):
             start = time.time()
             sampled_graph = self._sample()
             sampled_graphs.append(sampled_graph)
-            timing = time.time() - start
+            timing = time.time() - start + self.approx_time
             if logdir:
                 self._log(sampled_graph,
                           os.path.join(logdir,

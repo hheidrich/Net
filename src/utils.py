@@ -359,3 +359,19 @@ def get_plot_grid_size(k):
     else:
         cols = rows
     return rows, cols
+
+
+def argmax_with_patience(x, max_patience):
+    max_val = 0.
+    patience = max_patience
+    for i in range(len(x)):
+        if x[i] > max_val:
+            max_val = x[i]
+            argmax = i
+            patience = max_patience
+        else:
+            patience -= 1
+       
+        if patience == 0:
+            break
+    return argmax
