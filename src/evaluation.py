@@ -342,7 +342,8 @@ def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs)
     # Create comparison dict and original statistics dict
     comparison_dict = {}
     for dataset in datasets:
-            comparison_dict[dataset] = dict.fromkeys(statistic_fns.keys(), 0)                                           
+            statistic_keys = list(statistic_fns.keys())+['ROC-AUC Score', 'Average Precision']                                   
+            comparison_dict[dataset] = dict.fromkeys(statistic_keys, 0)                                           
     original_statistics = dict.fromkeys(datasets, None)
     for model in models.keys():
         for dataset in datasets:
@@ -350,12 +351,14 @@ def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs)
             if original_statistics[dataset] is None:
                 original_statistics[dataset] = compute_original_statistics(original_graphs[dataset],
                                                                            statistic_fns)
+                original_statistics[dataset]['ROC-AUC Score'] = 1
+                original_statistics[dataset]['Average Precision'] = 1                                           
             # Extract statistics for specified model, dataset, and edge overlap
             eval_model_dataset = Evaluation(experiment_root=f'../logs/rel_error_table/{dataset}/{model}/',
                                             statistic_fns=statistic_fns)
             _, overlap_statistics = eval_model_dataset.get_specific_overlap_graph(target_overlap=overlap)
             # Compute relative error for all statistics
-            for statistic in statistic_fns.keys():                                             
+            for statistic in list(statistic_fns.keys())+['ROC-AUC Score', 'Average Precision']:                                 
                 rel_error = 0
                 for trial in overlap_statistics.keys():
                     rel_error += np.abs(overlap_statistics[trial][statistic] - original_statistics[dataset][statistic])
@@ -366,7 +369,6 @@ def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs)
             for trial in overlap_statistics.keys():
                 avg_overlap += overlap_statistics[trial]['Edge Overlap (%)'] / len(overlap_statistics.keys())
     df = pd.DataFrame(comparison_dict.values(), comparison_dict.keys())
-    
     return df
 
                                            
