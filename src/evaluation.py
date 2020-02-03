@@ -340,8 +340,9 @@ def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs)
                                  of relative errors with the weights from models.values().
     """
     # Create comparison dict and original statistics dict
-    relative_error_dict = dict.fromkeys(statistic_fns.keys(), 0)
-    comparison_dict = dict.fromkeys(datasets, relative_error_dict)
+    comparison_dict = {}
+    for dataset in datasets:
+            comparison_dict[dataset] = dict.fromkeys(statistic_fns.keys(), 0)                                           
     original_statistics = dict.fromkeys(datasets, None)
     for model in models.keys():
         for dataset in datasets:
@@ -350,31 +351,54 @@ def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs)
                 original_statistics[dataset] = compute_original_statistics(original_graphs[dataset],
                                                                            statistic_fns)
             # Extract statistics for specified model, dataset, and edge overlap
-            eval_model_dataset = Evaluation(experiment_root=f'../logs/{dataset}/{model}/',
+            eval_model_dataset = Evaluation(experiment_root=f'../logs/rel_error_table/{dataset}/{model}/',
                                             statistic_fns=statistic_fns)
             _, overlap_statistics = eval_model_dataset.get_specific_overlap_graph(target_overlap=overlap)
             # Compute relative error for all statistics
-            for statistic in statistic_fns.keys():
+            for statistic in statistic_fns.keys():                                             
                 rel_error = 0
                 for trial in overlap_statistics.keys():
                     rel_error += np.abs(overlap_statistics[trial][statistic] - original_statistics[dataset][statistic])
                 rel_error /= len(overlap_statistics.keys()) * original_statistics[dataset][statistic]
                 comparison_dict[dataset][statistic] += models[model] * np.abs(rel_error)
+            # Compute average edge overlaps and print them
+            avg_overlap = 0
+            for trial in overlap_statistics.keys():
+                avg_overlap += overlap_statistics[trial]['Edge Overlap (%)'] / len(overlap_statistics.keys())
     df = pd.DataFrame(comparison_dict.values(), comparison_dict.keys())
     
     return df
 
                                            
-def heat_map_from_df(df, annot_size=20, xlabel_size=15, ylabel_size=15, xtick_size=10, ytick_size=10,
-                               x_rotation=-45, y_rotation=0, save_path=None):
-    plt.tight_layout()                                               
-    ax = sns.heatmap(df, annot=True, annot_kws={"size": annot_size}, cmap='RdBu_r', center=0, linewidths=1)
+def heat_map_from_df(df, color_limits=None, figsize=(15, 15), annot_size=20, xlabel_size=15, ylabel_size=15, xtick_size=10, ytick_size=10, x_rotation=-45, y_rotation=0, xtick_shift=0, colorlabel_size=20, save_path=None):
+    # Round values in df
+    df_dict = df.to_dict()
+    for outer_key, inner_dict in df_dict.items():
+        for inner_key, val in inner_dict.items():
+            val = round(val, 2)
+            if val==0:
+                val=0
+            df_dict[outer_key][inner_key] = val
+    df = pd.DataFrame(df_dict)
+    # Make plot                                           
+    f, ax = plt.subplots(figsize=figsize)                                           
+    plt.tight_layout()                     
+    if color_limits is not None:                                           
+        ax = sns.heatmap(df, annot=True, annot_kws={"size": annot_size}, cmap='RdBu_r', linewidths=1,
+                         vmin=color_limits[0],
+                         vmax=color_limits[1],
+                         ax=ax)
+    else:
+        ax = sns.heatmap(df, annot=True, annot_kws={"size": annot_size}, cmap='RdBu_r', center=0, linewidths=1)                 
+    cmap = ax.figure.axes[-1].tick_params(labelsize=colorlabel_size, length=0)                                       
     ax.xaxis.set_ticks_position('top')
     ax.xaxis.set_label_position('top')
-    plt.xticks(rotation=x_rotation, fontsize=xtick_size)
+    locs, labels = plt.xticks()                                           
+    plt.xticks(ticks=locs-xtick_shift, rotation=x_rotation, fontsize=xtick_size)
     plt.yticks(rotation=y_rotation, fontsize=ytick_size)
     ax.set_xlabel('Statistics', fontsize=xlabel_size)
-    ax.set_ylabel('Data sets', fontsize=ylabel_size)                                           
+    ax.set_ylabel('Data sets', fontsize=ylabel_size) 
+    ax.tick_params(axis=u'both', which=u'both',length=0)                                           
     if save_path:                                       
         plt.savefig(fname=save_path, bbox_inches='tight')                                           
     return         
