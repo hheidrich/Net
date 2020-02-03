@@ -375,3 +375,11 @@ def argmax_with_patience(x, max_patience):
         if patience == 0:
             break
     return argmax
+
+def y_fmt_K(y, pos):    
+    val = y/1e3      
+    if val==0:
+        y_formatted = '0'
+    else:
+        y_formatted = '{val}K'.format(val=int(val))
+    return y_formatted

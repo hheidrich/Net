@@ -5,6 +5,9 @@ import pickle
 import numpy as np
 from scipy.sparse import load_npz
 from matplotlib import pyplot as plt
+plt.rcParams['mathtext.fontset'] = 'stix'
+plt.rcParams['font.family'] = 'STIXGeneral'
+from matplotlib.ticker import FuncFormatter
 import seaborn as sns
 import pandas as pd
 import utils
@@ -240,8 +243,8 @@ def boxplot(statistics, statistics_binned, original_statistics, min_binsize=3, m
     return
                                            
 
-def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, grid_size=None, figsize=(22, 12), show_keys=None, translation_dict=None, max_patience=5, save_path=None):
-    # Set up figure                                           
+def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, grid_size=None, figsize=(22, 12), show_keys=None, translation_dict=None, max_patience=5, plot_val=False, save_path=None):
+    # Set up figure        
     if show_keys is None:
         keys = list(models_statistics_binned[list(models_statistics_binned.keys())[0]][0].keys()) 
     else:
@@ -264,7 +267,7 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
         statistics_binned = models_statistics_binned[model][0]
         color = models_statistics_binned[model][1]
         if len(models_statistics_binned[model])>2:
-            val_criterion = models_statistics_binned[model][2]                                            
+            val_criterion = models_statistics_binned[model][2]                                              
         # Locate bins with sufficiently many entries and remove others 
         bin_keys = [len(_bin)>=min_binsize for _bin in statistics_binned['Edge Overlap (%)']]
         means, stds = {}, {}
@@ -288,25 +291,27 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
                                              colors='green',
                                              linestyles='dashed',
                                              label='Target (input graph)')  
-                    if val_criterion is not None:                                           
+                    if plot_val:                                           
                         axs[row, col].axvline(x=val_criterion(max_patience), color=color, linestyle='dashdot',
                                               label=f'VAL stopping-criterion ({model})')                     
                     axs[row, col].set_xlabel('Edge overlap (%)', labelpad=5)               
-                    axs[row, col].set_ylabel(translation[key], labelpad=2)
+                    axs[row, col].set_ylabel(translation[key], labelpad=5)
                     if counter==0:                                           
                         axs[row, col].set_xticks([EO for EO in positions[::2]])                                           
                         axs[row, col].set_xticklabels([f'{EO:.2f}'[1:] for EO in positions[::2]])
 #                     for tick in axs[row, col].get_xticklabels():
-#                         tick.set_visible(True)                                           
+#                         tick.set_visible(True)  
+                    if key in ['Wedge Count']:#, 'Triangle Count', 'Square Count']:
+                        axs[row, col].yaxis.set_major_formatter(FuncFormatter(utils.y_fmt_K))                       
                 else:
                     axs[row, col].axis('off')
                 axs[row, col].set_xlim(0, max(positions)+0.05)
     handles, labels = axs[0,0].get_legend_handles_labels()
-    if val_criterion is not None:                                           
+    if plot_val:                                           
         label_order = [3, 5, 1, 4, 0]      
         ncol=5                                           
     else:
-        label_order = [1, 2, 3]                                           
+        label_order = [1, 3, 2]                                           
         ncol=3                                           
     handles_sorted = [handles[i] for i in label_order]
     labels_sorted = [labels[i] for i in label_order]                                           
