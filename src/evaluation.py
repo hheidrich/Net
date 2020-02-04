@@ -3,6 +3,7 @@ sys.path.insert(0, '../src/')
 import os
 import pickle
 import numpy as np
+import math
 from scipy.sparse import load_npz
 from matplotlib import pyplot as plt
 plt.rcParams['mathtext.fontset'] = 'stix'
@@ -294,11 +295,11 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
                     if plot_val:                                           
                         axs[row, col].axvline(x=val_criterion(max_patience), color=color, linestyle='dashdot',
                                               label=f'VAL stopping-criterion ({model})')                     
-                    axs[row, col].set_xlabel('Edge overlap (%)', labelpad=5)               
+                    axs[row, col].set_xlabel('Edge overlap (in %)', labelpad=5)               
                     axs[row, col].set_ylabel(translation[key], labelpad=5)
                     if counter==0:                                           
                         axs[row, col].set_xticks([EO for EO in positions[::2]])                                           
-                        axs[row, col].set_xticklabels([f'{EO:.2f}'[1:] for EO in positions[::2]])
+                        axs[row, col].set_xticklabels([int(100*EO) for EO in positions[::2]])
 #                     for tick in axs[row, col].get_xticklabels():
 #                         tick.set_visible(True)  
                     if key in ['Wedge Count']:#, 'Triangle Count', 'Square Count']:
@@ -322,7 +323,7 @@ def errorbar_plot(models_statistics_binned, original_statistics, min_binsize=3, 
     return                                           
 
                                            
-def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs):
+def make_rel_error_df(path, datasets, models, statistic_fns, overlap, original_graphs, link_prediction=True):
     """ Make a table/ heatmap that compares the relative error of two models at a specified edge overlap 
     for a list of datasets and a list of statistics. Always computes error of first model minus
     error of second model.
@@ -351,18 +352,24 @@ def make_rel_error_df(datasets, models, statistic_fns, overlap, original_graphs)
             if original_statistics[dataset] is None:
                 original_statistics[dataset] = compute_original_statistics(original_graphs[dataset],
                                                                            statistic_fns)
-                original_statistics[dataset]['ROC-AUC Score'] = 1
-                original_statistics[dataset]['Average Precision'] = 1                                           
+                if link_prediction:                                           
+                    original_statistics[dataset]['ROC-AUC Score'] = 1
+                    original_statistics[dataset]['Average Precision'] = 1                                           
             # Extract statistics for specified model, dataset, and edge overlap
-            eval_model_dataset = Evaluation(experiment_root=f'../logs/rel_error_table/{dataset}/{model}/',
+            eval_model_dataset = Evaluation(experiment_root=os.path.join(path, dataset, model),
+#                                            f'../logs/rel_error_table/{dataset}/{model}/'
                                             statistic_fns=statistic_fns)
             _, overlap_statistics = eval_model_dataset.get_specific_overlap_graph(target_overlap=overlap)
             # Compute relative error for all statistics
-            for statistic in list(statistic_fns.keys())+['ROC-AUC Score', 'Average Precision']:                                 
-                rel_error = 0
+            list_of_statistics = list(statistic_fns.keys())
+            if link_prediction:
+                list_of_statistics = list_of_statistics + ['ROC-AUC Score', 'Average Precision']                                 
+            for statistic in list_of_statistics:                                 
+                rel_errors = []
                 for trial in overlap_statistics.keys():
-                    rel_error += np.abs(overlap_statistics[trial][statistic] - original_statistics[dataset][statistic])
-                rel_error /= len(overlap_statistics.keys()) * original_statistics[dataset][statistic]
+                    if not math.isnan(overlap_statistics[trial][statistic]):                                            
+                        rel_errors.append(np.abs(overlap_statistics[trial][statistic]-original_statistics[dataset][statistic]))
+                rel_error = np.array(rel_errors).mean() / original_statistics[dataset][statistic]
                 comparison_dict[dataset][statistic] += models[model] * np.abs(rel_error)
             # Compute average edge overlaps and print them
             avg_overlap = 0
