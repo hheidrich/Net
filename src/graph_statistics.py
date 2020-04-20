@@ -261,7 +261,7 @@ def assortativity(A_in):
 
 def clustering_coefficient(A_in):
     """Compute clustering coefficient."""
-    return 3 * triangle_count(A_in) / claw_count(A_in)
+    return 3 * triangle_count(A_in) / wedge_count(A_in)
 
 
 def compute_graph_statistics(A):
